@@ -1,0 +1,6 @@
+{
+  "name": "TexPro ERP",
+  "description": "Complete Textile ERP Accounting System with General Journal, Categorized Vouchers (JV, CR, CP, BP, BR, Sale, Purchase), General Ledger, Financial Reports, and Lot-wise Quantitative & Financial Processing (Grey Cloth, Dyeing, Stitching, Sale Orders).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,158 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated user profile in the SaaS ERP platform.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Full name" },
+        "activeOrgId": { "type": "string", "description": "Currently active organization / tenant ID" },
+        "joinedOrgIds": { "type": "array", "description": "List of organization IDs this user belongs to" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "activeOrgId"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Multi-tenant business organization / enterprise profile in SaaS TexPro ERP.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Organization ID" },
+        "name": { "type": "string", "description": "Legal business or mill name" },
+        "orgCode": { "type": "string", "description": "Short code used for invites (e.g. TXP-8491)" },
+        "ownerUid": { "type": "string", "description": "UID of organization owner / creator" },
+        "currency": { "type": "string", "description": "Base currency (e.g. PKR / Rs.)" },
+        "country": { "type": "string", "description": "Country of operations" },
+        "taxId": { "type": "string", "description": "National Tax Number / Sales Tax Registration" },
+        "memberUids": { "type": "array", "description": "List of user UIDs authorized in this organization" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerUid", "memberUids"]
+    },
+    "OrgMember": {
+      "title": "OrgMember",
+      "description": "Organization membership role assignment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User UID" },
+        "orgId": { "type": "string", "description": "Organization ID" },
+        "email": { "type": "string", "description": "Member email" },
+        "displayName": { "type": "string", "description": "Member display name" },
+        "role": { "type": "string", "enum": ["OWNER", "ADMIN", "ACCOUNTANT", "PRODUCTION_MANAGER", "VIEWER"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orgId", "email", "role"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "Chart of accounts record scoped to organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orgId": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"] },
+        "description": { "type": "string" },
+        "initialBalance": { "type": "number" },
+        "currentBalance": { "type": "number" }
+      },
+      "required": ["id", "orgId", "code", "name", "type"]
+    },
+    "Voucher": {
+      "title": "Voucher",
+      "description": "Categorized double-entry journal voucher scoped to organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orgId": { "type": "string" },
+        "voucherNumber": { "type": "string" },
+        "voucherType": { "type": "string", "enum": ["JV", "CR", "CP", "BP", "BR", "SALE", "PURCHASE"] },
+        "date": { "type": "integer" },
+        "description": { "type": "string" },
+        "partyName": { "type": "string" },
+        "lotNumber": { "type": "string" },
+        "saleOrderNumber": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitMeasure": { "type": "string" },
+        "unitRate": { "type": "number" },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["id", "orgId", "voucherNumber", "voucherType", "totalAmount"]
+    },
+    "Lot": {
+      "title": "Lot",
+      "description": "Textile manufacturing lot tracked through production sequence scoped to organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orgId": { "type": "string" },
+        "lotNumber": { "type": "string" },
+        "saleOrderId": { "type": "integer" },
+        "saleOrderNumber": { "type": "string" },
+        "customerName": { "type": "string" },
+        "quality": { "type": "string" },
+        "blend": { "type": "string" },
+        "width": { "type": "string" },
+        "greyVendorName": { "type": "string" },
+        "greyMeters": { "type": "number" },
+        "stage": { "type": "string" },
+        "totalCost": { "type": "number" },
+        "saleTotalRevenue": { "type": "number" }
+      },
+      "required": ["id", "orgId", "lotNumber", "customerName", "quality"]
+    },
+    "SaleOrder": {
+      "title": "SaleOrder",
+      "description": "Customer sale order backing the production lots scoped to organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orgId": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "customerName": { "type": "string" },
+        "itemDescription": { "type": "string" },
+        "quality": { "type": "string" },
+        "blend": { "type": "string" },
+        "width": { "type": "string" },
+        "orderedPieces": { "type": "integer" },
+        "targetMeters": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "orgId", "orderNumber", "customerName", "unitPrice"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile and tenant membership pointer"
+    },
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "SaaS Tenant Organization document"
+    },
+    "/organizations/{orgId}/members/{memberId}": {
+      "schema": "OrgMember",
+      "description": "Organization membership role mappings"
+    },
+    "/organizations/{orgId}/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "Tenant-isolated Chart of Accounts"
+    },
+    "/organizations/{orgId}/vouchers/{voucherId}": {
+      "schema": "Voucher",
+      "description": "Tenant-isolated General Journal & Vouchers"
+    },
+    "/organizations/{orgId}/lots/{lotId}": {
+      "schema": "Lot",
+      "description": "Tenant-isolated Production Lots"
+    },
+    "/organizations/{orgId}/sale_orders/{orderId}": {
+      "schema": "SaleOrder",
+      "description": "Tenant-isolated Sales Orders"
+    }
+  }
+}

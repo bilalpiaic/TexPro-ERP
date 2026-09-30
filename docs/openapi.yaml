@@ -1,0 +1,1848 @@
+openapi: 3.0.3
+info:
+  title: TexPro ERP & Financial Platform API (Textile Manufacturing & Financials)
+  description: >-
+    OpenAPI 3.0 specification contract for TexPro ERP, covering Core Accounts (Chart of Accounts),
+    Categorized Double-Entry Vouchers (JV, CR, CP, BP, BR, Sale, Purchase), General Ledger & Date-Filtered Reports
+    (Trial Balance, P&L, Balance Sheet, Debtors Ledger with Dual Currency Rs./$ USD), Quantitative & Financial Stock
+    Movement Reports, Complete Textile Lots Production Sequence (Grey Cloth Purchase in Quality/Blend/Width categories,
+    Processor Dye/Print, Stitcher CMT, Customer Delivery backed by Sale Order from start till end), and Stock Portfolio Modeling & DCF Valuation.
+  version: 1.0.0
+  contact:
+    name: TexPro ERP Architecture Team
+    email: api@texpro.internal
+servers:
+  - url: https://api.texpro.internal/v1
+    description: Production Gateway
+  - url: http://localhost:8000/v1
+    description: Local Development / Uvicorn Server
+
+tags:
+  - name: Accounts
+    description: Chart of Accounts management across GAAP/IFRS categories (Asset, Liability, Equity, Revenue, Expense).
+  - name: Vouchers
+    description: Categorized double-entry vouchers (JV, CR, CP, BP, BR, Sale, Purchase) with quantitative (meters, pieces) and financial impacts.
+  - name: TextileLots
+    description: Lot-wise manufacturing sequence: Grey cloth purchase by quality/blend/width, processor dye/print, stitcher CMT, and final dispatch.
+  - name: SaleOrders
+    description: Sales Orders backing the production lot sequence from start till end.
+  - name: Reports
+    description: Date-filtered financial reports (General Ledger, Trial Balance, P&L, Balance Sheet, Debtors Ledger in Rs./$ USD, and 4-tier Stock Movement register).
+  - name: Stocks
+    description: Equity holdings, portfolio tracking, trade execution with auto-journaling, and DCF intrinsic valuation modeling.
+
+paths:
+  # ==========================================
+  # ACCOUNTS MODULE
+  # ==========================================
+  /accounts:
+    get:
+      tags:
+        - Accounts
+      summary: List all accounts
+      description: Retrieves the Chart of Accounts with real-time calculated balances derived from posted journal lines.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          description: Filter accounts by classification type
+          schema:
+            $ref: '#/components/schemas/AccountType'
+      responses:
+        '200':
+          description: A list of active chart of accounts with balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Accounts
+      summary: Create a new account
+      description: Adds a new ledger account to the Chart of Accounts with designated code, name, and classification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreateRequest'
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Account with the specified code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accounts/{account_id}:
+    get:
+      tags:
+        - Accounts
+      summary: Get account by ID
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          description: Unique account identifier
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Account found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Accounts
+      summary: Update account details
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          description: Unique account identifier
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdateRequest'
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Accounts
+      summary: Archive or delete account
+      description: Deletes an account if it has no associated posted journal entries.
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          description: Unique account identifier
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Account successfully deleted or archived
+        '400':
+          description: Cannot delete account with non-zero balance or active journal history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{account_id}/ledger:
+    get:
+      tags:
+        - Accounts
+      summary: Get detailed general ledger entries for account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: History of debits, credits, and running balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountLedgerHistory'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # TRANSACTIONS & JOURNAL MODULE
+  # ==========================================
+  /transactions:
+    get:
+      tags:
+        - Transactions
+      summary: List all journal transactions
+      description: Returns posted journal vouchers sorted by timestamp descending.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [POSTED, DRAFT]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of journal entries with lines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JournalEntry'
+
+    post:
+      tags:
+        - Transactions
+      summary: Post a double-entry journal voucher
+      description: >-
+        Creates and posts a balanced journal voucher.
+        Strict invariant: Sum of Debits must equal Sum of Credits (Σ Debits == Σ Credits).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JournalVoucherRequest'
+      responses:
+        '201':
+          description: Journal voucher validated and posted to General Ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalEntry'
+        '400':
+          description: Unbalanced entry or invalid account references
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /transactions/{transaction_id}:
+    get:
+      tags:
+        - Transactions
+      summary: Get journal transaction by ID
+      parameters:
+        - name: transaction_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Complete journal voucher with lines
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reports/balance-sheet:
+    get:
+      tags:
+        - Reports
+      summary: Generate real-time Balance Sheet
+      description: Computes Assets, Liabilities, and Equity as of specified date to verify the Fundamental Accounting Equation (Assets = Liabilities + Equity).
+      parameters:
+        - name: as_of_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current Balance Sheet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceSheetReport'
+
+  /reports/income-statement:
+    get:
+      tags:
+        - Reports
+      summary: Generate Income Statement (Profit & Loss)
+      description: Computes Gross Operating Revenue, Operating Expenses, Net Operating Income, and Net Profit Margin with date filtering.
+      parameters:
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current Income Statement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeStatementReport'
+
+  /reports/trial-balance:
+    get:
+      tags:
+        - Reports
+      summary: Generate Trial Balance summary
+      description: Verifies cumulative debits and credits across all accounts in the general ledger with date filtering.
+      parameters:
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Trial Balance verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrialBalanceReport'
+
+  # ==========================================
+  # CATEGORIZED VOUCHERS MODULE (JV, CR, CP, BP, BR, SALE, PURCHASE)
+  # ==========================================
+  /vouchers:
+    get:
+      tags:
+        - Vouchers
+      summary: List categorized vouchers with date & type filtering
+      description: Retrieves posted vouchers categorized by JV, CR, CP, BP, BR, Sale, Purchase with quantitative and financial details.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/VoucherType'
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: lot_number
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sale_order_number
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of vouchers with lines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Voucher'
+
+    post:
+      tags:
+        - Vouchers
+      summary: Post a categorized double-entry voucher
+      description: Creates and validates a double-entry voucher (JV, CR, CP, BP, BR, Sale, Purchase) with debit=credit invariance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoucherCreateRequest'
+      responses:
+        '201':
+          description: Voucher posted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Voucher'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ==========================================
+  # SALE ORDERS MODULE (Backing Lots from Start to End)
+  # ==========================================
+  /sale-orders:
+    get:
+      tags:
+        - SaleOrders
+      summary: List all confirmed sale orders
+      description: Returns customer sale orders that back the lot production lifecycle from start till end.
+      responses:
+        '200':
+          description: List of sale orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SaleOrder'
+
+    post:
+      tags:
+        - SaleOrders
+      summary: Create a new customer sale order
+      description: Registers buyer order specifications (Quality, Blend, Width, pieces, estimated target meters, and price).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleOrderCreateRequest'
+      responses:
+        '201':
+          description: Sale order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaleOrder'
+
+  # ==========================================
+  # TEXTILE LOTS WORKFLOW MODULE (Sequence: Grey -> Processor -> Stitcher -> Customer)
+  # ==========================================
+  /lots:
+    get:
+      tags:
+        - TextileLots
+      summary: List all manufacturing lots
+      description: Returns all lots across the sequence: Grey Received, At Processor, At Stitcher, Finished Goods, Dispatched.
+      parameters:
+        - name: stage
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LotStage'
+      responses:
+        '200':
+          description: List of production lots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lot'
+
+    post:
+      tags:
+        - TextileLots
+      summary: Purchase Grey Cloth and initiate new Lot (Step 1)
+      description: >-
+        Purchases Grey Cloth in lots (Quality/Blend/Width categories) from Grey Vendor, backed by Sale Order.
+        Automatically generates Purchase Voucher (PV) in General Ledger (Dr Raw Material 1410, Cr Accounts Payable 2010).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GreyPurchaseRequest'
+      responses:
+        '201':
+          description: Lot created and Grey Cloth Purchase Voucher posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+
+  /lots/{lot_id}/send-processor:
+    post:
+      tags:
+        - TextileLots
+      summary: Send Grey Cloth to Dye/Print Processor (Step 2a)
+      description: Dispatches grey lot to processor. Posts Journal Voucher (JV) transferring stock from Raw Material (1410) to WIP Processing (1420).
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessorSendRequest'
+      responses:
+        '200':
+          description: Lot updated to AT_PROCESSOR and transfer JV posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+
+  /lots/{lot_id}/receive-processor:
+    post:
+      tags:
+        - TextileLots
+      summary: Receive Processed Fabric from Processor (Step 2b)
+      description: Records received meters after shrinkage, updates yield, and posts JV booking processing charges to AP.
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessorReceiveRequest'
+      responses:
+        '200':
+          description: Processed fabric received and charges booked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+
+  /lots/{lot_id}/issue-stitcher:
+    post:
+      tags:
+        - TextileLots
+      summary: Issue Fabric to Stitcher (CMT) & Receive Finished Goods (Step 3)
+      description: Issues processed fabric to stitcher for cutting/making/trimming. Posts JV to Finished Goods (1440) and books CMT payables (2030).
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StitcherIssueRequest'
+      responses:
+        '200':
+          description: Finished goods received and packaged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+
+  /lots/{lot_id}/dispatch-invoice:
+    post:
+      tags:
+        - TextileLots
+      summary: Dispatch and Invoice Final Customer with Dual Currency (Step 4)
+      description: Ships packaged goods to customer against Sale Order. Posts Sale Voucher (SV) with Dual Currency option (Rs. & $ USD) and books COGS.
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchInvoiceRequest'
+      responses:
+        '200':
+          description: Customer invoiced and dispatched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+
+  # ==========================================
+  # STOCKS MOVEMENT & DEBTORS REPORTS (Date Filtered)
+  # ==========================================
+  /reports/stock-movements:
+    get:
+      tags:
+        - Reports
+      summary: 4-Tier Textile Stocks Movement Report (Date Filtered)
+      description: Returns quantitative & financial opening, inward, outward, and closing balances across Grey Cloth, WIP, Finished Fabric, and Finished Goods.
+      parameters:
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Quantitative and financial stock register
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockMovementItem'
+
+  /reports/debtors-ledger:
+    get:
+      tags:
+        - Reports
+      summary: Debtors (Accounts Receivable) Ledger with Dual Currency ($ USD / Base Rs.)
+      description: Returns customer claims, sales invoices, and bank receipts with toggle between Base Currency Rs. and 2nd Currency USD ($).
+      parameters:
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: currency
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PKR, USD]
+            default: PKR
+        - name: exchange_rate
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            default: 278.50
+      responses:
+        '200':
+          description: Debtors ledger entries with dual currency metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebtorsLedgerReport'
+
+  # ==========================================
+  # STOCKS & PORTFOLIO MODULE
+  # ==========================================
+  /stocks:
+    get:
+      tags:
+        - Stocks
+      summary: List all stock holdings & portfolio summary
+      description: Returns current equity holdings, cost bases, market values, and aggregate portfolio gain/loss.
+      responses:
+        '200':
+          description: Portfolio holdings list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioSummaryResponse'
+
+    post:
+      tags:
+        - Stocks
+      summary: Add stock holding or watchlist symbol
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockCreateRequest'
+      responses:
+        '201':
+          description: Stock added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockHolding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /stocks/{symbol}:
+    get:
+      tags:
+        - Stocks
+      summary: Get stock holding & valuation metrics by symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Ticker symbol (e.g. NVDA, AAPL, MSFT)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stock details and valuation metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockHolding'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /stocks/{symbol}/trade:
+    post:
+      tags:
+        - Stocks
+      summary: Execute stock trade & auto-book to General Ledger
+      description: >-
+        Executes a Buy or Sell order for the designated stock.
+        Automatically logs balanced double-entry vouchers:
+        - Buy: Dr Asset 1500 Stock Investment, Cr Cash 1010.
+        - Sell: Dr Cash 1010, Cr Asset 1500 Cost Basis, Cr/Dr Realized Gain/Loss.
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockTradeRequest'
+      responses:
+        '200':
+          description: Trade executed and ledger synchronized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockTradeResponse'
+        '400':
+          description: Insufficient cash balance or insufficient shares to sell
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /stocks/{symbol}/dcf-valuation:
+    post:
+      tags:
+        - Stocks
+      summary: Calculate DCF Intrinsic Fair Value
+      description: >-
+        Simulates Discounted Cash Flow valuation for equity based on projected 5-year EPS growth,
+        terminal exit P/E multiple, and discount rate (WACC).
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DcfValuationRequest'
+      responses:
+        '200':
+          description: Computed fair intrinsic value and margin of safety
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DcfValuationResponse'
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  schemas:
+    AccountType:
+      type: string
+      enum:
+        - ASSET
+        - LIABILITY
+        - EQUITY
+        - REVENUE
+        - EXPENSE
+      description: Standard GAAP accounting classification
+
+    Account:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - type
+        - balance
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        code:
+          type: string
+          example: "1010"
+        name:
+          type: string
+          example: "Operating Checking (JPMorgan)"
+        type:
+          $ref: '#/components/schemas/AccountType'
+        description:
+          type: string
+          example: "Primary corporate checking account"
+        balance:
+          type: number
+          format: double
+          example: 84500.00
+        totalDebit:
+          type: number
+          format: double
+          example: 125000.00
+        totalCredit:
+          type: number
+          format: double
+          example: 40500.00
+        isSystem:
+          type: boolean
+          example: true
+
+    AccountCreateRequest:
+      type: object
+      required:
+        - code
+        - name
+        - type
+      properties:
+        code:
+          type: string
+          example: "1030"
+        name:
+          type: string
+          example: "Treasury Bond Reserve"
+        type:
+          $ref: '#/components/schemas/AccountType'
+        description:
+          type: string
+          example: "Liquid short-term government bond investments"
+        initialBalance:
+          type: number
+          format: double
+          default: 0.0
+          example: 25000.00
+
+    AccountUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Operating Checking (Chase Commercial)"
+        description:
+          type: string
+          example: "Updated operating facility"
+
+    AccountLedgerHistory:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        accountCode:
+          type: string
+        accountName:
+          type: string
+        currentBalance:
+          type: number
+          format: double
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalLine'
+
+    JournalLine:
+      type: object
+      required:
+        - accountId
+        - debit
+        - credit
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 101
+        entryId:
+          type: integer
+          format: int64
+          example: 12
+        accountId:
+          type: integer
+          format: int64
+          example: 1
+        accountCode:
+          type: string
+          example: "1010"
+        accountName:
+          type: string
+          example: "Operating Checking"
+        debit:
+          type: number
+          format: double
+          example: 3200.00
+        credit:
+          type: number
+          format: double
+          example: 0.00
+        memo:
+          type: string
+          example: "Payment for servers"
+
+    JournalVoucherLineInput:
+      type: object
+      required:
+        - accountId
+        - debit
+        - credit
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          example: 1
+        debit:
+          type: number
+          format: double
+          example: 2500.00
+        credit:
+          type: number
+          format: double
+          example: 0.00
+        memo:
+          type: string
+          example: "Client consulting retainer fee"
+
+    JournalVoucherRequest:
+      type: object
+      required:
+        - description
+        - lines
+      properties:
+        description:
+          type: string
+          example: "Quarterly Cloud Infrastructure Payment"
+        reference:
+          type: string
+          example: "INV-2026-09A"
+        lines:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/JournalVoucherLineInput'
+
+    JournalEntry:
+      type: object
+      required:
+        - id
+        - entryNumber
+        - date
+        - description
+        - status
+        - lines
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 45
+        entryNumber:
+          type: string
+          example: "JV-2026-004"
+        date:
+          type: integer
+          format: int64
+          description: Epoch milliseconds timestamp
+          example: 1790789600000
+        description:
+          type: string
+          example: "Strategic Stock Acquisition - NVDA"
+        reference:
+          type: string
+          example: "TRD-NVDA-01"
+        status:
+          type: string
+          enum: [POSTED, DRAFT]
+          example: "POSTED"
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalLine'
+        totalDebit:
+          type: number
+          format: double
+          example: 2580.00
+        totalCredit:
+          type: number
+          format: double
+          example: 2580.00
+        isBalanced:
+          type: boolean
+          example: true
+
+    StockHolding:
+      type: object
+      required:
+        - symbol
+        - companyName
+        - shares
+        - currentPrice
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        symbol:
+          type: string
+          example: "NVDA"
+        companyName:
+          type: string
+          example: "NVIDIA Corporation"
+        sector:
+          type: string
+          example: "Semiconductors & AI"
+        shares:
+          type: number
+          format: double
+          example: 60.0
+        avgBuyPrice:
+          type: number
+          format: double
+          example: 118.40
+        currentPrice:
+          type: number
+          format: double
+          example: 132.80
+        marketValue:
+          type: number
+          format: double
+          example: 7968.00
+        totalCostBasis:
+          type: number
+          format: double
+          example: 7104.00
+        unrealizedGainLoss:
+          type: number
+          format: double
+          example: 864.00
+        unrealizedGainPercent:
+          type: number
+          format: double
+          example: 12.16
+        dayChangePercent:
+          type: number
+          format: double
+          example: 2.45
+        eps:
+          type: number
+          format: double
+          example: 2.85
+        peRatio:
+          type: number
+          format: double
+          example: 46.5
+        dividendYield:
+          type: number
+          format: double
+          example: 0.08
+        beta:
+          type: number
+          format: double
+          example: 1.68
+        projectedGrowthRate:
+          type: number
+          format: double
+          example: 28.0
+
+    PortfolioSummaryResponse:
+      type: object
+      properties:
+        totalMarketValue:
+          type: number
+          format: double
+          example: 64500.00
+        totalCostBasis:
+          type: number
+          format: double
+          example: 54200.00
+        totalGainLoss:
+          type: number
+          format: double
+          example: 10300.00
+        totalGainPercent:
+          type: number
+          format: double
+          example: 19.00
+        holdingsCount:
+          type: integer
+          example: 5
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockHolding'
+
+    StockCreateRequest:
+      type: object
+      required:
+        - symbol
+        - companyName
+        - currentPrice
+      properties:
+        symbol:
+          type: string
+          example: "TSLA"
+        companyName:
+          type: string
+          example: "Tesla Inc."
+        sector:
+          type: string
+          example: "Automotive & Energy"
+        shares:
+          type: number
+          format: double
+          default: 0.0
+        avgBuyPrice:
+          type: number
+          format: double
+          default: 0.0
+        currentPrice:
+          type: number
+          format: double
+          example: 245.50
+        eps:
+          type: number
+          format: double
+          default: 3.12
+        peRatio:
+          type: number
+          format: double
+          default: 68.0
+
+    StockTradeRequest:
+      type: object
+      required:
+        - action
+        - shares
+        - pricePerShare
+      properties:
+        action:
+          type: string
+          enum: [BUY, SELL]
+          example: "BUY"
+        shares:
+          type: number
+          format: double
+          example: 10.0
+        pricePerShare:
+          type: number
+          format: double
+          example: 132.80
+        cashAccountId:
+          type: integer
+          format: int64
+          default: 1
+          example: 1
+
+    StockTradeResponse:
+      type: object
+      properties:
+        tradeId:
+          type: string
+          example: "TRD-NVDA-8821"
+        symbol:
+          type: string
+          example: "NVDA"
+        action:
+          type: string
+          example: "BUY"
+        shares:
+          type: number
+          format: double
+          example: 10.0
+        executionPrice:
+          type: number
+          format: double
+          example: 132.80
+        totalConsideration:
+          type: number
+          format: double
+          example: 1328.00
+        journalVoucherNumber:
+          type: string
+          example: "JV-TRD-8821"
+        status:
+          type: string
+          example: "SETTLED"
+
+    DcfValuationRequest:
+      type: object
+      properties:
+        projectedGrowthRate:
+          type: number
+          format: double
+          description: Expected 5-year annual EPS growth percentage
+          example: 25.0
+        terminalPE:
+          type: number
+          format: double
+          description: Terminal exit P/E multiple at Year 5
+          example: 28.0
+        discountRate:
+          type: number
+          format: double
+          description: WACC / hurdle discount rate percentage
+          example: 9.0
+
+    DcfValuationResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: "NVDA"
+        currentPrice:
+          type: number
+          format: double
+          example: 132.80
+        fairIntrinsicValue:
+          type: number
+          format: double
+          example: 156.40
+        marginOfSafetyPercent:
+          type: number
+          format: double
+          example: 17.77
+        isUndervalued:
+          type: boolean
+          example: true
+        recommendation:
+          type: string
+          example: "UNDERVALUED - ACCUMULATE"
+
+    BalanceSheetReport:
+      type: object
+      properties:
+        asOfDate:
+          type: string
+          format: date
+          example: "2026-09-30"
+        totalAssets:
+          type: number
+          format: double
+          example: 239400.00
+        totalLiabilities:
+          type: number
+          format: double
+          example: 38900.00
+        totalEquity:
+          type: number
+          format: double
+          example: 195500.00
+        currentPeriodNetIncome:
+          type: number
+          format: double
+          example: 5000.00
+        isBalanced:
+          type: boolean
+          example: true
+
+    IncomeStatementReport:
+      type: object
+      properties:
+        period:
+          type: string
+          example: "YTD 2026"
+        grossRevenue:
+          type: number
+          format: double
+          example: 18450.00
+        operatingExpenses:
+          type: number
+          format: double
+          example: 9890.00
+        netOperatingIncome:
+          type: number
+          format: double
+          example: 8560.00
+        netProfitMarginPercent:
+          type: number
+          format: double
+          example: 46.39
+
+    TrialBalanceReport:
+      type: object
+      properties:
+        totalDebit:
+          type: number
+          format: double
+          example: 178400.00
+        totalCredit:
+          type: number
+          format: double
+          example: 178400.00
+        variance:
+          type: number
+          format: double
+          example: 0.00
+        isBalanced:
+          type: boolean
+          example: true
+
+    # ==========================================
+    # TEXTILE & VOUCHER SCHEMAS
+    # ==========================================
+    VoucherType:
+      type: string
+      enum:
+        - JV
+        - CR
+        - CP
+        - BP
+        - BR
+        - SALE
+        - PURCHASE
+      description: Categorized voucher classification
+
+    VoucherLine:
+      type: object
+      required:
+        - accountId
+      properties:
+        id:
+          type: integer
+          format: int64
+        voucherId:
+          type: integer
+          format: int64
+        accountId:
+          type: integer
+          format: int64
+        debit:
+          type: number
+          format: double
+          example: 10920.00
+        credit:
+          type: number
+          format: double
+          example: 0.00
+        quantity:
+          type: number
+          format: double
+          example: 5200.0
+        memo:
+          type: string
+          example: "5,200m Grey Cloth 40x40"
+        lotNumber:
+          type: string
+          example: "LOT-2026-801"
+
+    Voucher:
+      type: object
+      required:
+        - voucherNumber
+        - voucherType
+        - date
+        - description
+        - totalAmount
+      properties:
+        id:
+          type: integer
+          format: int64
+        voucherNumber:
+          type: string
+          example: "PV-2026-101"
+        voucherType:
+          $ref: '#/components/schemas/VoucherType'
+        date:
+          type: integer
+          format: int64
+          example: 1727715600000
+        description:
+          type: string
+          example: "Purchase Grey Cloth 40x40/100x80 105\" 100% Cotton for SO-101"
+        reference:
+          type: string
+          example: "BILL-KW-8492"
+        lotNumber:
+          type: string
+          example: "LOT-2026-801"
+        saleOrderNumber:
+          type: string
+          example: "SO-2026-101"
+        partyName:
+          type: string
+          example: "Kohinoor Weaving Mills"
+        quantity:
+          type: number
+          format: double
+          example: 5200.0
+        unitMeasure:
+          type: string
+          example: "Meters"
+        unitRate:
+          type: number
+          format: double
+          example: 2.10
+        totalAmount:
+          type: number
+          format: double
+          example: 10920.00
+        status:
+          type: string
+          example: "POSTED"
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VoucherLine'
+
+    VoucherCreateRequest:
+      type: object
+      required:
+        - voucherType
+        - description
+        - totalAmount
+        - lines
+      properties:
+        voucherType:
+          $ref: '#/components/schemas/VoucherType'
+        voucherNumber:
+          type: string
+        date:
+          type: integer
+          format: int64
+        description:
+          type: string
+        reference:
+          type: string
+        lotNumber:
+          type: string
+        saleOrderNumber:
+          type: string
+        partyName:
+          type: string
+        quantity:
+          type: number
+          format: double
+        unitMeasure:
+          type: string
+        unitRate:
+          type: number
+          format: double
+        totalAmount:
+          type: number
+          format: double
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VoucherLine'
+
+    SaleOrder:
+      type: object
+      required:
+        - orderNumber
+        - customerName
+        - itemDescription
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderNumber:
+          type: string
+          example: "SO-2026-101"
+        customerName:
+          type: string
+          example: "Brookstone Home Furnishings"
+        orderDate:
+          type: integer
+          format: int64
+        deliveryDate:
+          type: integer
+          format: int64
+        itemDescription:
+          type: string
+          example: "Printed Bed Sheet Sets 105\" 100% Cotton"
+        quality:
+          type: string
+          example: "40x40 / 100x80 Satin"
+        blend:
+          type: string
+          example: "100% Combed Cotton"
+        width:
+          type: string
+          example: "105\""
+        orderedPieces:
+          type: integer
+          example: 1200
+        targetMeters:
+          type: number
+          format: double
+          example: 5200.0
+        unitPrice:
+          type: number
+          format: double
+          example: 30.00
+        status:
+          type: string
+          example: "IN_PRODUCTION"
+        notes:
+          type: string
+
+    SaleOrderCreateRequest:
+      type: object
+      required:
+        - customerName
+        - itemDescription
+        - orderedPieces
+        - unitPrice
+      properties:
+        customerName:
+          type: string
+        itemDescription:
+          type: string
+        quality:
+          type: string
+        blend:
+          type: string
+        width:
+          type: string
+        orderedPieces:
+          type: integer
+        targetMeters:
+          type: number
+          format: double
+        unitPrice:
+          type: number
+          format: double
+        notes:
+          type: string
+
+    LotStage:
+      type: string
+      enum:
+        - GREY_ORDERED
+        - GREY_RECEIVED
+        - AT_PROCESSOR
+        - AT_STITCHER
+        - FINISHED_GOODS
+        - DISPATCHED_SOLD
+
+    Lot:
+      type: object
+      required:
+        - lotNumber
+        - saleOrderId
+        - customerName
+        - quality
+        - blend
+        - width
+        - greyVendorName
+        - greyMeters
+        - greyRatePerMeter
+      properties:
+        id:
+          type: integer
+          format: int64
+        lotNumber:
+          type: string
+          example: "LOT-2026-801"
+        saleOrderId:
+          type: integer
+          format: int64
+        saleOrderNumber:
+          type: string
+          example: "SO-2026-101"
+        customerName:
+          type: string
+        quality:
+          type: string
+        blend:
+          type: string
+        width:
+          type: string
+        greyVendorName:
+          type: string
+        greyMeters:
+          type: number
+          format: double
+        greyRatePerMeter:
+          type: number
+          format: double
+        greyTotalCost:
+          type: number
+          format: double
+        processorName:
+          type: string
+        processType:
+          type: string
+        processedMeters:
+          type: number
+          format: double
+        processingRatePerMeter:
+          type: number
+          format: double
+        processingTotalCost:
+          type: number
+          format: double
+        stitcherName:
+          type: string
+        finishedUnits:
+          type: integer
+        stitchingRatePerUnit:
+          type: number
+          format: double
+        stitchingTotalCost:
+          type: number
+          format: double
+        stage:
+          $ref: '#/components/schemas/LotStage'
+        saleRatePerUnit:
+          type: number
+          format: double
+        saleTotalRevenue:
+          type: number
+          format: double
+        totalCost:
+          type: number
+          format: double
+        grossProfit:
+          type: number
+          format: double
+        grossMarginPercent:
+          type: number
+          format: double
+
+    GreyPurchaseRequest:
+      type: object
+      required:
+        - saleOrderId
+        - lotNumber
+        - quality
+        - blend
+        - width
+        - greyVendorName
+        - greyMeters
+        - greyRatePerMeter
+      properties:
+        saleOrderId:
+          type: integer
+          format: int64
+        lotNumber:
+          type: string
+        quality:
+          type: string
+        blend:
+          type: string
+        width:
+          type: string
+        greyVendorName:
+          type: string
+        greyMeters:
+          type: number
+          format: double
+        greyRatePerMeter:
+          type: number
+          format: double
+
+    ProcessorSendRequest:
+      type: object
+      required:
+        - processorName
+        - processType
+        - processingRatePerMeter
+      properties:
+        processorName:
+          type: string
+        processType:
+          type: string
+        processingRatePerMeter:
+          type: number
+          format: double
+
+    ProcessorReceiveRequest:
+      type: object
+      required:
+        - receivedMeters
+      properties:
+        receivedMeters:
+          type: number
+          format: double
+
+    StitcherIssueRequest:
+      type: object
+      required:
+        - stitcherName
+        - finishedUnits
+        - stitchingRatePerUnit
+      properties:
+        stitcherName:
+          type: string
+        finishedUnits:
+          type: integer
+        stitchingRatePerUnit:
+          type: number
+          format: double
+
+    DispatchInvoiceRequest:
+      type: object
+      required:
+        - saleRatePerUnit
+      properties:
+        saleRatePerUnit:
+          type: number
+          format: double
+        currency:
+          type: string
+          enum: [PKR, USD]
+        exchangeRate:
+          type: number
+          format: double
+
+    StockMovementItem:
+      type: object
+      properties:
+        category:
+          type: string
+          example: "1. Raw Material: Grey Cloth"
+        lotNumber:
+          type: string
+          example: "LOT-2026-801, 802, 803"
+        quality:
+          type: string
+          example: "40x40 / 100x80 & 30x30"
+        unitMeasure:
+          type: string
+          example: "Meters"
+        openingQty:
+          type: number
+          format: double
+        openingValueRs:
+          type: number
+          format: double
+        inwardQty:
+          type: number
+          format: double
+        inwardValueRs:
+          type: number
+          format: double
+        outwardQty:
+          type: number
+          format: double
+        outwardValueRs:
+          type: number
+          format: double
+        closingQty:
+          type: number
+          format: double
+        closingValueRs:
+          type: number
+          format: double
+
+    DebtorsLedgerReport:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: "USD"
+        exchangeRate:
+          type: number
+          format: double
+          example: 278.50
+        totalInvoiced:
+          type: number
+          format: double
+        totalReceived:
+          type: number
+          format: double
+        outstandingBalance:
+          type: number
+          format: double
+        vouchers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Voucher'
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "UNBALANCED_ENTRY"
+        message:
+          type: string
+          example: "Total debits ($3200.00) do not equal total credits ($3000.00)."
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters or unparseable payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Unexpected server exception
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
