@@ -64,6 +64,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
             release/app-debug.apk \
             --title "TexPro ERP $GITHUB_REF_NAME" \
             --generate-notes
