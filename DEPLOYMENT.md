@@ -1,26 +1,41 @@
 # Deployment
 
-## Google Play (required for store publication)
+## Standalone APK (sideload)
 
-New apps must upload an **Android App Bundle** (`.aab`), not an APK.
+This repo builds an installable **`TexPro-ERP.apk`** you can copy to a phone. It is not a Google Play Store package.
 
-Follow `docs/PLAY_STORE_READINESS.md` for the full Play Console checklist.
+### Download from GitHub Actions
 
-```bash
-# Android Studio: Build → Generate Signed App Bundle
-# or CI: Actions → Build Play App Bundle
+1. Open **Actions** → **Build downloadable APK**.
+2. Open a green run (or click **Run workflow**).
+3. Download the `TexPro-ERP-apk` artifact and unzip it.
+4. Copy `TexPro-ERP.apk` to an Android phone (USB, Drive, or Telegram/WhatsApp to yourself).
+5. On the phone: **Settings → Security → Install unknown apps** for the app you used to open the file, then tap the APK.
+
+### Persistent download (GitHub Release)
+
+- Push a tag such as `v1.0.0`, **or** run the workflow with **Run workflow**.
+- That publishes `TexPro-ERP.apk` on the repository **Releases** page.
+- Manual runs update the `sideload` release, so the file URL stays:
+
+```text
+https://github.com/bilalpiaic/TexPro-ERP/releases/download/sideload/TexPro-ERP.apk
 ```
 
-The signed AAB is at `app/build/outputs/bundle/release/app-release.aab` when an upload keystore is present. Without keystore secrets, CI still produces an unsigned/debug-signed bundle you can inspect but **must not** upload to Play production.
+(Available after the first successful `workflow_dispatch` or tag build.)
 
-## Debug APK (testers only)
+### Build on your machine
 
-A separate workflow on branch `bilalpiaic-deploy-apk` builds `app-debug.apk` for sideloading. Debug APKs are not accepted as the production Play artifact.
+Requires JDK 17+ and Android SDK 36.
 
-1. Open **Actions**.
-2. Run **Build Android APK** or **Build Play App Bundle**.
-3. Download the artifact.
+```bash
+chmod +x scripts/build-apk.sh
+./scripts/build-apk.sh
+# output: dist/TexPro-ERP.apk
+```
 
-## GitHub Release tags
+The sideload APK is the **debug-signed** build so it installs without a Play upload keystore. Google Sign-In needs `app/google-services.json` from Firebase; the rest of the mill ledger works offline.
 
-Tags such as `v1.0.0` are fine for internal tester APKs. Production users should install from Google Play after the closed test period.
+## Google Play (AAB, not this APK)
+
+Play production still requires a signed **Android App Bundle**. See `docs/PLAY_STORE_READINESS.md`. Do not upload `TexPro-ERP.apk` to Play production.

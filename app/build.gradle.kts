@@ -10,7 +10,7 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.ledgerproerp.qzmxyt"
@@ -42,7 +42,13 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfigs.findByName("release")?.let { signingConfig = it }
+      // Sideload-friendly: debug-sign the APK when no Play upload keystore is present.
+      signingConfig = signingConfigs.findByName("release")
+        ?: signingConfigs.getByName("debug")
+    }
+    debug {
+      isDebuggable = true
+      signingConfig = signingConfigs.getByName("debug")
     }
   }
   compileOptions {
@@ -128,4 +134,17 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+val sideloadApkDir = rootProject.layout.projectDirectory.dir("dist")
+
+tasks.register<Copy>("copySideloadApk") {
+  group = "distribution"
+  description = "Copy the installable debug APK to dist/TexPro-ERP.apk"
+  dependsOn("assembleDebug")
+  from(layout.buildDirectory.dir("outputs/apk/debug"))
+  include("*.apk")
+  exclude("*-unsigned.apk")
+  into(sideloadApkDir)
+  rename { "TexPro-ERP.apk" }
 }
