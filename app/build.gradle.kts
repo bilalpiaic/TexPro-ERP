@@ -24,14 +24,16 @@ android {
 
   signingConfigs {
     val uploadKeystore = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
-    val storePw = System.getenv("STORE_PASSWORD")
-    val keyPw = System.getenv("KEY_PASSWORD")
-    if (uploadKeystore.exists() && !storePw.isNullOrBlank() && !keyPw.isNullOrBlank()) {
+    val canSignRelease =
+      uploadKeystore.exists() &&
+        !System.getenv("STORE_PASSWORD").isNullOrBlank() &&
+        !System.getenv("KEY_PASSWORD").isNullOrBlank()
+    if (canSignRelease) {
       create("release") {
         storeFile = uploadKeystore
-        storePassword = storePw
+        storePassword = System.getenv("STORE_PASSWORD")
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = keyPw
+        keyPassword = System.getenv("KEY_PASSWORD")
       }
     }
   }
