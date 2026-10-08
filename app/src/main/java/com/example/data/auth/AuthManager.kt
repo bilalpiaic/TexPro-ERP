@@ -8,11 +8,11 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
-import com.example.R
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.channels.awaitClose
@@ -39,7 +39,12 @@ class AuthManager(private val context: Context) {
 
     suspend fun signInWithGoogle(activity: Activity): Result<FirebaseUser> {
         return try {
-            val serverClientId = context.getString(R.string.default_web_client_id)
+            val serverClientId = resolveWebClientId()
+                ?: return Result.failure(
+                    IllegalStateException(
+                        "Google Sign-In is not configured. Add google-services.json from Firebase Console."
+                    )
+                )
             val signInOption = GetSignInWithGoogleOption.Builder(serverClientId)
                 .build()
 
@@ -77,5 +82,35 @@ class AuthManager(private val context: Context) {
 
     fun signOut() {
         auth.signOut()
+    }
+
+    /**
+     * Deletes the Firebase Auth user. Caller must wipe Firestore profile first while
+     * still authenticated. Re-authentication is required if the session is stale.
+     */
+    suspend fun deleteAccount(): Result<Unit> {
+        val user = auth.currentUser
+            ?: return Result.failure(IllegalStateException("Not signed in"))
+        return try {
+            user.delete().await()
+            Result.success(Unit)
+        } catch (e: FirebaseAuthRecentLoginRequiredException) {
+            Log.w(TAG, "Recent login required before account deletion")
+            Result.failure(e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Account deletion failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    private fun resolveWebClientId(): String? {
+        val resId = context.resources.getIdentifier(
+            "default_web_client_id",
+            "string",
+            context.packageName
+        )
+        if (resId == 0) return null
+        val value = context.getString(resId)
+        return value.takeIf { it.isNotBlank() && !it.startsWith("YOUR_") }
     }
 }

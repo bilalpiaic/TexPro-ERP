@@ -52,7 +52,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun MyApplicationTheme(
+fun TexProErpTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false, // Use our corporate fintech branding by default
     content: @Composable () -> Unit,

@@ -122,7 +122,7 @@ class FirestoreSaasRepository(private val context: Context) {
                     "description" to acc.description,
                     "initialBalance" to acc.initialBalance
                 )
-                orgDoc.collection("accounts").document(acc.id.toString()).set(accData, SetOptions.merge())
+                orgDoc.collection("accounts").document(acc.id.toString()).set(accData, SetOptions.merge()).await()
             }
 
             // 2. Sync Vouchers
@@ -144,7 +144,7 @@ class FirestoreSaasRepository(private val context: Context) {
                     "unitRate" to v.unitRate,
                     "totalAmount" to v.totalAmount
                 )
-                orgDoc.collection("vouchers").document(v.id.toString()).set(vData, SetOptions.merge())
+                orgDoc.collection("vouchers").document(v.id.toString()).set(vData, SetOptions.merge()).await()
             }
 
             // 3. Sync Lots
@@ -167,7 +167,7 @@ class FirestoreSaasRepository(private val context: Context) {
                     "totalCost" to lot.totalCost,
                     "saleTotalRevenue" to lot.saleTotalRevenue
                 )
-                orgDoc.collection("lots").document(lot.id.toString()).set(lotData, SetOptions.merge())
+                orgDoc.collection("lots").document(lot.id.toString()).set(lotData, SetOptions.merge()).await()
             }
 
             // 4. Sync Sale Orders
@@ -188,12 +188,23 @@ class FirestoreSaasRepository(private val context: Context) {
                     "unitPrice" to so.unitPrice,
                     "status" to so.status
                 )
-                orgDoc.collection("sale_orders").document(so.id.toString()).set(soData, SetOptions.merge())
+                orgDoc.collection("sale_orders").document(so.id.toString()).set(soData, SetOptions.merge()).await()
             }
 
             Log.d(TAG, "Completed cloud tenant sync for org: $orgId")
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing tenant data: ${e.message}", e)
+            throw e
+        }
+    }
+
+    suspend fun deleteUserCloudData(uid: String) {
+        try {
+            firestore.collection("users").document(uid).delete().await()
+            Log.d(TAG, "Deleted Firestore profile for $uid")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting user profile: ${e.message}", e)
+            throw e
         }
     }
 }

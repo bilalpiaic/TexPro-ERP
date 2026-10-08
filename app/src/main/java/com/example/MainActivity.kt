@@ -46,7 +46,7 @@ import com.example.ui.screens.GeneralLedgerReportsScreen
 import com.example.ui.screens.LotsWorkflowScreen
 import com.example.ui.screens.SaleOrdersScreen
 import com.example.ui.screens.VouchersJournalScreen
-import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.TexProErpTheme
 
 enum class MainNavTab(val label: String, val icon: ImageVector, val tag: String) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard, "tab_dashboard"),
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
+            TexProErpTheme {
                 MainAppScreen()
             }
         }
@@ -125,6 +125,9 @@ fun MainAppScreen(
             },
             onSyncCloud = {
                 erpViewModel.syncCurrentTenantWithCloud()
+            },
+            onDeleteAccount = {
+                erpViewModel.deleteAccount()
             }
         )
     }

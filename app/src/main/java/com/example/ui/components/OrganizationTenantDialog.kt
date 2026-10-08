@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,12 +26,13 @@ import androidx.compose.material.icons.filled.AddBusiness
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CorporateFare
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,7 +42,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -59,14 +62,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.model.OrgMemberRole
 import com.example.data.model.OrganizationEntity
-import com.example.ui.theme.Amber500
-import com.example.ui.theme.Blue500
 import com.example.ui.theme.Emerald500
-import com.example.ui.theme.Indigo500
 import com.google.firebase.auth.FirebaseUser
 
 @Composable
@@ -162,9 +164,9 @@ fun OrganizationTopHeader(
                     Spacer(modifier = Modifier.width(6.dp))
                 } else {
                     Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = "Cloud Connected",
-                        tint = Emerald500,
+                        imageVector = if (currentUser != null) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        contentDescription = if (currentUser != null) "Signed in" else "Local only",
+                        tint = if (currentUser != null) Emerald500 else MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -224,9 +226,12 @@ fun OrganizationTenantDialog(
     onCreateOrg: (name: String, code: String, taxId: String, millAddress: String, currency: String) -> Unit,
     onSignInWithGoogle: (Activity) -> Unit,
     onSignOut: () -> Unit,
-    onSyncCloud: () -> Unit
+    onSyncCloud: () -> Unit,
+    onDeleteAccount: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showPrivacyPolicy by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val tabTitles = listOf("Active Tenants", "Create Organization", "Cloud & Account")
 
     val context = LocalContext.current
@@ -438,7 +443,9 @@ fun OrganizationTenantDialog(
                         // Tab 2: Cloud Database & Account
                         Column(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.height(280.dp)
+                            modifier = Modifier
+                                .height(280.dp)
+                                .verticalScroll(rememberScrollState())
                         ) {
                             Card(
                                 shape = RoundedCornerShape(10.dp),
@@ -446,9 +453,17 @@ fun OrganizationTenantDialog(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("CLOUD DATABASE BACKEND", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                                    Text("Firestore Enterprise (ai-studio-android-texproer)", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                                    Text("Tenant Isolation: Zero-Trust Security Rules active", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = Emerald500)
+                                    Text("CLOUD DATABASE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        if (currentUser != null) "Signed in. Optional Firestore sync for the active organization."
+                                        else "Local mill data stays on this device until you sign in and sync.",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        "Internet is used only for Google Sign-In and cloud sync.",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
 
@@ -511,6 +526,23 @@ fun OrganizationTenantDialog(
                                                 Text("Sign Out", fontSize = 12.sp)
                                             }
                                         }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        OutlinedButton(
+                                            onClick = { showDeleteConfirm = true },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.error
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteForever,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Delete account", fontSize = 12.sp)
+                                        }
                                     }
                                 }
                             } else {
@@ -546,6 +578,19 @@ fun OrganizationTenantDialog(
                                     }
                                 }
                             }
+
+                            TextButton(
+                                onClick = { showPrivacyPolicy = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Policy,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(stringResource(R.string.privacy_policy_title))
+                            }
                         }
                     }
                 }
@@ -557,4 +602,52 @@ fun OrganizationTenantDialog(
             }
         }
     )
+
+    if (showPrivacyPolicy) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyPolicy = false },
+            title = { Text(stringResource(R.string.privacy_policy_title)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.privacy_policy_body),
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyPolicy = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.account_deletion_title)) },
+            text = { Text(stringResource(R.string.account_deletion_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDeleteAccount()
+                        onDismiss()
+                    }
+                ) {
+                    Text(
+                        stringResource(R.string.account_deletion_confirm),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
