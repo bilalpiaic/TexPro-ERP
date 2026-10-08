@@ -22,3 +22,6 @@ google-services.json
 local.keystore
 my-upload-key.jks
 *-debug.log
+/dist/*.apk
+*.apk
+!gradle/wrapper/gradle-wrapper.jar
