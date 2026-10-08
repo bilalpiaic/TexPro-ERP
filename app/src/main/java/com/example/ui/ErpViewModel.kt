@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -317,18 +318,48 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         _userFeedbackMessage.value = "Signed out of TexPro Cloud."
     }
 
+    fun deleteAccount() {
+        viewModelScope.launch {
+            val user = currentUser.value
+            if (user == null) {
+                _userFeedbackMessage.value = "Sign in first to delete a cloud account."
+                return@launch
+            }
+            try {
+                saasRepository.deleteUserCloudData(user.uid)
+                val result = authManager.deleteAccount()
+                result.onSuccess {
+                    _userFeedbackMessage.value = "Account deleted. Local mill data on this device was kept."
+                }.onFailure { err ->
+                    _userFeedbackMessage.value =
+                        "Cloud profile removed, but Google requires a recent sign-in to finish deleting the account. Sign in again, then retry. (${err.message})"
+                }
+            } catch (e: Exception) {
+                _userFeedbackMessage.value = "Could not delete account: ${e.message}"
+            }
+        }
+    }
+
     fun syncCurrentTenantWithCloud() {
         viewModelScope.launch {
             val org = currentOrganization.value ?: return@launch
+            if (currentUser.value == null) {
+                _userFeedbackMessage.value = "Sign in with Google to sync this organization to the cloud."
+                return@launch
+            }
             _isCloudSyncing.value = true
-            _userFeedbackMessage.value = "Syncing ${org.name} data to Firestore Enterprise..."
+            _userFeedbackMessage.value = "Syncing ${org.name} to Firestore..."
             try {
-                // Collect snapshots of current repository data
-                // In production, syncs tenant data to Firestore
-                val accounts = repository.rawAccounts
-                _userFeedbackMessage.value = "Cloud Sync complete for ${org.name} (DB: ai-studio-android-texproer)"
+                saasRepository.syncTenantDataToCloud(
+                    orgId = org.id,
+                    accounts = repository.rawAccounts.first(),
+                    vouchers = repository.allVouchers.first(),
+                    lots = repository.lots.first(),
+                    saleOrders = repository.saleOrders.first()
+                )
+                _userFeedbackMessage.value = "Cloud sync complete for ${org.name}."
             } catch (e: Exception) {
-                _userFeedbackMessage.value = "Sync note: ${e.message}"
+                _userFeedbackMessage.value = "Cloud sync failed: ${e.message}"
             } finally {
                 _isCloudSyncing.value = false
             }
