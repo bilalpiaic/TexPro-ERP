@@ -49,10 +49,10 @@ import com.example.ui.screens.VouchersJournalScreen
 import com.example.ui.theme.TexProErpTheme
 
 enum class MainNavTab(val label: String, val icon: ImageVector, val tag: String) {
-    DASHBOARD("Dashboard", Icons.Default.Dashboard, "tab_dashboard"),
-    LOTS("Lots Flow", Icons.Default.Timeline, "tab_lots"),
+    DASHBOARD("Home", Icons.Default.Dashboard, "tab_dashboard"),
+    SALE_ORDERS("Orders", Icons.Default.Assignment, "tab_so"),
+    LOTS("Production", Icons.Default.Timeline, "tab_lots"),
     VOUCHERS("Journal", Icons.Default.ReceiptLong, "tab_vouchers"),
-    SALE_ORDERS("Sale Orders", Icons.Default.Assignment, "tab_so"),
     REPORTS("Reports", Icons.Default.AccountBalanceWallet, "tab_reports")
 }
 
@@ -178,6 +178,7 @@ fun MainAppScreen(
     ) { innerPadding ->
         when (currentTab) {
             MainNavTab.DASHBOARD -> DashboardScreen(
+                organizationName = currentOrg?.name ?: "TexPro mill books",
                 balanceSheet = balanceSheet,
                 incomeStatement = incomeStatement,
                 inventorySummary = inventorySummary,
@@ -195,6 +196,17 @@ fun MainAppScreen(
                 onOpenNewVoucherDialog = { vType ->
                     preselectedVoucherType = vType
                     currentTab = MainNavTab.VOUCHERS
+                },
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            MainNavTab.SALE_ORDERS -> SaleOrdersScreen(
+                saleOrders = saleOrders,
+                onCreateSaleOrder = { num, cust, item, qual, blend, width, pcs, meters, price, notes ->
+                    erpViewModel.createSaleOrder(num, cust, item, qual, blend, width, pcs, meters, price, notes)
+                },
+                onStartLotForSo = { so ->
+                    currentTab = MainNavTab.LOTS
                 },
                 modifier = Modifier.padding(innerPadding)
             )
@@ -230,17 +242,6 @@ fun MainAppScreen(
                 modifier = Modifier.padding(innerPadding)
             )
 
-            MainNavTab.SALE_ORDERS -> SaleOrdersScreen(
-                saleOrders = saleOrders,
-                onCreateSaleOrder = { num, cust, item, qual, blend, width, pcs, meters, price, notes ->
-                    erpViewModel.createSaleOrder(num, cust, item, qual, blend, width, pcs, meters, price, notes)
-                },
-                onStartLotForSo = { so ->
-                    currentTab = MainNavTab.LOTS
-                },
-                modifier = Modifier.padding(innerPadding)
-            )
-
             MainNavTab.REPORTS -> GeneralLedgerReportsScreen(
                 accounts = accounts,
                 allVouchers = vouchers,
@@ -248,6 +249,8 @@ fun MainAppScreen(
                 balanceSheet = balanceSheet,
                 incomeStatement = incomeStatement,
                 lots = lots,
+                healthRatios = healthRatios,
+                inventorySummary = inventorySummary,
                 modifier = Modifier.padding(innerPadding)
             )
         }

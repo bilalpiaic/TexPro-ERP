@@ -62,7 +62,9 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.LotEntity
 import com.example.data.model.LotStage
 import com.example.data.model.SaleOrderEntity
+import com.example.ui.components.PageHeader
 import com.example.ui.components.formatCurrency
+import com.example.ui.export.ReportText
 import com.example.ui.components.formatPercent
 import com.example.ui.theme.Amber500
 import com.example.ui.theme.Blue500
@@ -126,8 +128,17 @@ fun LotsWorkflowScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
+                    PageHeader(
+                        eyebrow = "Input · Production",
+                        title = "Lot workflow",
+                        description = "Move each sale-order lot through grey purchase, dyeing/printing, CMT stitching, and dispatch. Each step posts the matching voucher to the ledger.",
+                        printTitle = "Production lot register",
+                        reportText = { ReportText.lots(lots) },
+                        primaryActionLabel = "New grey purchase",
+                        onPrimaryAction = { showNewLotDialog = true }
+                    )
                     Text(
-                        "${filteredLots.size} Lots in Production Lifecycle",
+                        "${filteredLots.size} lots in this filter",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

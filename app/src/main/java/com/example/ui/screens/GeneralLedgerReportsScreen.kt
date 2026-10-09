@@ -53,16 +53,20 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.AccountType
 import com.example.data.model.AccountWithBalance
 import com.example.data.model.BalanceSheetData
+import com.example.data.model.FinancialHealthRatios
 import com.example.data.model.IncomeStatementData
 import com.example.data.model.LotEntity
 import com.example.data.model.LotStage
 import com.example.data.model.StockMovementItem
+import com.example.data.model.TextileInventorySummary
 import com.example.data.model.TrialBalanceData
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
 import com.example.ui.components.BalanceCheckBanner
 import com.example.ui.components.CurrencyTogglePill
 import com.example.ui.components.DateRangeFilterHeader
+import com.example.ui.components.PageHeader
+import com.example.ui.export.ReportText
 import com.example.ui.components.formatCurrency
 import com.example.ui.components.formatDualCurrency
 import com.example.ui.components.formatRs
@@ -85,10 +89,12 @@ fun GeneralLedgerReportsScreen(
     balanceSheet: BalanceSheetData?,
     incomeStatement: IncomeStatementData?,
     lots: List<LotEntity>,
+    healthRatios: FinancialHealthRatios? = null,
+    inventorySummary: TextileInventorySummary? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabTitles = listOf("General Ledger", "Debtors (AR)", "Stock Movements", "Trial Balance", "Profit & Loss", "Balance Sheet", "Lot Profitability")
+    val tabTitles = listOf("Analysis", "General Ledger", "Debtors (AR)", "Stock", "Trial Balance", "Profit & Loss", "Balance Sheet", "Lot margin")
 
     // Universal Date Filter State (From Date - To Date)
     val now = System.currentTimeMillis()
@@ -116,7 +122,35 @@ fun GeneralLedgerReportsScreen(
             }
         }
 
-        // Global Date Range & Currency Bar
+        if (selectedTab != 0) {
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                PageHeader(
+                    eyebrow = "Reports",
+                    title = tabTitles[selectedTab],
+                    description = when (selectedTab) {
+                        1 -> "Account-level running ledger. Debit and credit postings with narration."
+                        2 -> "Trade receivables (IAS 1). Invoices less receipts, optional USD display."
+                        3 -> "Opening, inward, outward, and closing stock by production stage (IAS 2)."
+                        4 -> "All accounts with period debit and credit totals. Totals must match."
+                        5 -> "Statement of profit or loss for the selected dates."
+                        6 -> "Statement of financial position as at the end date."
+                        else -> "Gross margin by lot after grey, processing, and CMT cost."
+                    },
+                    printTitle = "TexPro ${tabTitles[selectedTab]}",
+                    reportText = {
+                        when (selectedTab) {
+                            4 -> ReportText.trialBalance(trialBalance)
+                            5 -> ReportText.profitAndLoss(incomeStatement)
+                            6 -> ReportText.balanceSheet(balanceSheet)
+                            7 -> ReportText.lots(lots)
+                            else -> ReportText.trialBalance(trialBalance)
+                        }
+                    }
+                )
+            }
+        }
+
+        if (selectedTab != 0) {
         Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             DateRangeFilterHeader(
                 fromDate = fromDate,
@@ -148,15 +182,22 @@ fun GeneralLedgerReportsScreen(
                 }
             )
         }
+        }
 
         when (selectedTab) {
-            0 -> GeneralLedgerAccountDrilldownView(
+            0 -> AnalyticsScreen(
+                healthRatios = healthRatios,
+                incomeStatement = incomeStatement,
+                inventorySummary = inventorySummary,
+                lots = lots
+            )
+            1 -> GeneralLedgerAccountDrilldownView(
                 accounts = accounts,
                 vouchers = allVouchers,
                 fromDate = fromDate,
                 toDate = toDate
             )
-            1 -> DebtorsLedgerDualCurrencyView(
+            2 -> DebtorsLedgerDualCurrencyView(
                 vouchers = allVouchers,
                 fromDate = fromDate,
                 toDate = toDate,
@@ -164,30 +205,30 @@ fun GeneralLedgerReportsScreen(
                 exchangeRate = exchangeRate,
                 onToggleCurrency = { isUsdPreferred = it }
             )
-            2 -> StockMovementReportView(
+            3 -> StockMovementReportView(
                 lots = lots,
                 vouchers = allVouchers,
                 fromDate = fromDate,
                 toDate = toDate
             )
-            3 -> TrialBalanceReportView(
+            4 -> TrialBalanceReportView(
                 accounts = accounts,
                 vouchers = allVouchers,
                 fromDate = fromDate,
                 toDate = toDate
             )
-            4 -> ProfitAndLossReportView(
+            5 -> ProfitAndLossReportView(
                 accounts = accounts,
                 vouchers = allVouchers,
                 fromDate = fromDate,
                 toDate = toDate
             )
-            5 -> BalanceSheetReportView(
+            6 -> BalanceSheetReportView(
                 accounts = accounts,
                 vouchers = allVouchers,
                 toDate = toDate
             )
-            6 -> LotProfitabilityReportView(
+            7 -> LotProfitabilityReportView(
                 lots = lots,
                 isUsdPreferred = isUsdPreferred,
                 exchangeRate = exchangeRate,

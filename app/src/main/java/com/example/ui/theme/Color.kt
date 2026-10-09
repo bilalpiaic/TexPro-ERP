@@ -7,9 +7,9 @@ val Navy900 = Color(0xFF0F172A) // Slate 900
 val Navy800 = Color(0xFF1E293B) // Slate 800
 val Navy700 = Color(0xFF334155) // Slate 700
 
-val Blue600 = Color(0xFF2563EB) // Primary Vibrant Blue
-val Blue500 = Color(0xFF3B82F6)
-val Blue100 = Color(0xFFDBEAFE)
+val Blue600 = Color(0xFF0F766E) // Accounting teal (IAS-style software)
+val Blue500 = Color(0xFF0D9488)
+val Blue100 = Color(0xFFCCFBF1)
 
 val Emerald600 = Color(0xFF059669) // Success & Positive Returns
 val Emerald500 = Color(0xFF10B981)

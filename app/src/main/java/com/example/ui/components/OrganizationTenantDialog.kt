@@ -141,7 +141,7 @@ fun OrganizationTopHeader(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Tenant: ${currentOrg?.id ?: "org_default"}",
+                            text = "${currentOrg?.currency ?: "Rs."} books · tap for company & sign-in",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
