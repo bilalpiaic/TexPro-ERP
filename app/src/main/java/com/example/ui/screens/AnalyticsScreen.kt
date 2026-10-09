@@ -21,14 +21,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.FinancialHealthRatios
 import com.example.data.model.IncomeStatementData
 import com.example.data.model.LotEntity
 import com.example.data.model.TextileInventorySummary
+import com.example.ui.components.AdaptiveGrid
 import com.example.ui.components.HelpCaption
+import com.example.ui.components.LabelValueRow
+import com.example.ui.components.MetricColumn
 import com.example.ui.components.PageHeader
+import com.example.ui.components.columns
 import com.example.ui.components.formatRs
+import com.example.ui.components.rememberWidthClass
 import com.example.ui.export.ReportText
 import com.example.ui.theme.Emerald500
 import com.example.ui.theme.Rose500
@@ -42,6 +48,7 @@ fun AnalyticsScreen(
     lots: List<LotEntity>,
     modifier: Modifier = Modifier
 ) {
+    val widthClass = rememberWidthClass()
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 120.dp),
@@ -115,18 +122,14 @@ fun AnalyticsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Profitability", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Revenue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRs(incomeStatement?.totalRevenue ?: 0.0), fontWeight = FontWeight.Bold)
-                        }
-                        Column {
-                            Text("Gross profit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRs(incomeStatement?.grossProfit ?: 0.0), fontWeight = FontWeight.Bold, color = Emerald500)
-                        }
-                        Column {
-                            Text("Net income", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRs(incomeStatement?.netIncome ?: 0.0), fontWeight = FontWeight.Bold)
+                    AdaptiveGrid(
+                        itemCount = 3,
+                        columns = widthClass.columns(compact = 1, medium = 3, expanded = 3)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> MetricColumn("Revenue", formatRs(incomeStatement?.totalRevenue ?: 0.0), modifier = itemMod)
+                            1 -> MetricColumn("Gross profit", formatRs(incomeStatement?.grossProfit ?: 0.0), valueColor = Emerald500, modifier = itemMod)
+                            else -> MetricColumn("Net income", formatRs(incomeStatement?.netIncome ?: 0.0), modifier = itemMod)
                         }
                     }
                     HelpCaption("Gross profit is sales minus grey, processing, and CMT cost of goods sold. Net income deducts remaining expenses.")
@@ -162,8 +165,8 @@ fun AnalyticsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(lot.lotNumber, fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(lot.lotNumber, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
                             String.format(Locale.US, "%.1f%%", lot.grossMarginPercent),
                             fontWeight = FontWeight.Bold,
@@ -189,7 +192,7 @@ private fun RatioCard(title: String, value: String, meaning: String) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"), maxLines = 2, overflow = TextOverflow.Ellipsis)
             HelpCaption(meaning)
         }
     }
@@ -197,16 +200,9 @@ private fun RatioCard(title: String, value: String, meaning: String) {
 
 @Composable
 private fun InventoryLine(label: String, qty: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column {
-            Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
-            Text(qty, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(value, fontWeight = FontWeight.Bold)
-    }
+    LabelValueRow(
+        label = "$label  ·  $qty",
+        value = value,
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
 }

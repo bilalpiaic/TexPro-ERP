@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -58,7 +59,9 @@ fun PageHeader(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
@@ -68,14 +71,13 @@ fun PageHeader(
         )
         if (reportText != null || onPrimaryAction != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            WrapRow(
+                horizontalSpacing = 8.dp,
+                verticalSpacing = 8.dp
             ) {
                 if (onPrimaryAction != null && primaryActionLabel != null) {
                     Button(onClick = onPrimaryAction, shape = RoundedCornerShape(10.dp)) {
-                        Text(primaryActionLabel)
+                        Text(primaryActionLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (reportText != null) {

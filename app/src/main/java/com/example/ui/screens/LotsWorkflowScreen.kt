@@ -57,13 +57,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.LotEntity
 import com.example.data.model.LotStage
 import com.example.data.model.SaleOrderEntity
+import com.example.ui.components.AdaptiveGrid
+import com.example.ui.components.AmountText
+import com.example.ui.components.MetricColumn
 import com.example.ui.components.PageHeader
+import com.example.ui.components.columns
 import com.example.ui.components.formatCurrency
+import com.example.ui.components.isCompact
+import com.example.ui.components.rememberWidthClass
 import com.example.ui.export.ReportText
 import com.example.ui.components.formatPercent
 import com.example.ui.theme.Amber500
@@ -253,20 +260,20 @@ fun TextileLotCard(
             // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(stageColor.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(lot.lotNumber, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = stageColor)
+                        Text(lot.lotNumber, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = stageColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Linked SO: ${lot.saleOrderNumber}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                    Text("Linked SO: ${lot.saleOrderNumber}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
                 Box(
@@ -277,7 +284,9 @@ fun TextileLotCard(
                 ) {
                     Text(
                         lot.stage.displayName.uppercase(Locale.US),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -341,89 +350,89 @@ fun TextileLotCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Cost vs Profit Summary Box
-            Box(
+            val lotWidthClass = rememberWidthClass()
+            AdaptiveGrid(
+                itemCount = if (lot.saleTotalRevenue > 0) 2 else 1,
+                columns = lotWidthClass.columns(compact = 1, medium = 2, expanded = 2),
                 modifier = Modifier
-                    .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     .padding(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Total Manufacturing Cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatCurrency(lot.totalCost), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        if (lot.finishedUnits > 0) {
-                            Text("Unit Cost: ${formatCurrency(lot.costPerUnit)} / set", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-
-                    if (lot.saleTotalRevenue > 0) {
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Gross Profit / Margin", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                "${formatCurrency(lot.grossProfit)} (+${String.format(Locale.US, "%.1f", lot.grossMarginPercent)}%)",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Emerald500)
-                            )
-                        }
-                    }
+            ) { index, itemMod ->
+                if (index == 0) {
+                    MetricColumn(
+                        label = if (lot.finishedUnits > 0) "Total Manufacturing Cost · ${formatCurrency(lot.costPerUnit)} / set" else "Total Manufacturing Cost",
+                        value = formatCurrency(lot.totalCost),
+                        modifier = itemMod
+                    )
+                } else {
+                    MetricColumn(
+                        label = "Gross Profit / Margin",
+                        value = "${formatCurrency(lot.grossProfit)} (+${String.format(Locale.US, "%.1f", lot.grossMarginPercent)}%)",
+                        valueColor = Emerald500,
+                        alignEnd = !lotWidthClass.isCompact,
+                        modifier = itemMod
+                    )
                 }
             }
 
             // Stage Action Buttons
             Spacer(modifier = Modifier.height(12.dp))
+            val actionFill = if (lotWidthClass.isCompact) Modifier.fillMaxWidth() else Modifier
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 when (lot.stage) {
                     LotStage.GREY_RECEIVED -> {
                         Button(
                             onClick = onSendProcessorClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = Amber500)
+                            colors = ButtonDefaults.buttonColors(containerColor = Amber500),
+                            modifier = actionFill
                         ) {
                             Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Send to Processor (Dye/Print)")
+                            Text("Send to Processor (Dye/Print)", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     LotStage.AT_PROCESSOR -> {
                         Button(
                             onClick = onReceiveProcessorClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
+                            colors = ButtonDefaults.buttonColors(containerColor = Indigo500),
+                            modifier = actionFill
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Receive Processed Fabric")
+                            Text("Receive Processed Fabric", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     LotStage.FINISHED_GOODS -> {
                         if (lot.finishedUnits == 0) {
                             Button(
                                 onClick = onStitchClick,
-                                colors = ButtonDefaults.buttonColors(containerColor = Blue500)
+                                colors = ButtonDefaults.buttonColors(containerColor = Blue500),
+                                modifier = actionFill
                             ) {
                                 Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Issue to Stitcher (CMT)")
+                                Text("Issue to Stitcher (CMT)", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         } else {
                             Button(
                                 onClick = onDispatchClick,
-                                colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
+                                colors = ButtonDefaults.buttonColors(containerColor = Emerald500),
+                                modifier = actionFill
                             ) {
                                 Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Dispatch & Invoice Customer (SV)")
+                                Text("Dispatch & Invoice Customer (SV)", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
                     LotStage.AT_STITCHER -> {
                         Button(
                             onClick = onStitchClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = Blue500)
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue500),
+                            modifier = actionFill
                         ) {
-                            Text("Receive from Stitcher")
+                            Text("Receive from Stitcher", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     LotStage.DISPATCHED_SOLD -> {
@@ -471,17 +480,16 @@ private fun SequenceStepItem(
                 Text(stepNum, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White))
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Column {
-                Text(stepTitle, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                Text("$party • $quantitative", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stepTitle, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$party • $quantitative", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
-        Text(
-            financialCost,
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = if (isRevenue) Emerald500 else MaterialTheme.colorScheme.onSurface
-            )
+        AmountText(
+            text = financialCost,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isRevenue) Emerald500 else MaterialTheme.colorScheme.onSurface,
+            maxLines = 2
         )
     }
 }

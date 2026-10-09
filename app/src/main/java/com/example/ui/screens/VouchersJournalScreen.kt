@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AccountWithBalance
@@ -66,7 +67,10 @@ import com.example.data.model.VoucherEntity
 import com.example.data.model.VoucherLineEntity
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
+import com.example.ui.components.DebitCreditPair
+import com.example.ui.components.FormPairRow
 import com.example.ui.components.PageHeader
+import com.example.ui.components.WrapRow
 import com.example.ui.components.formatCurrency
 import com.example.ui.export.ReportExport
 import com.example.ui.export.ReportText
@@ -231,10 +235,10 @@ fun VoucherDetailedCard(
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -244,7 +248,12 @@ fun VoucherDetailedCard(
                         Text(v.voucherType.code, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = vColor)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(v.voucherNumber, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        v.voucherNumber,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (v.lotNumber.isNotEmpty()) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Box(
@@ -253,7 +262,7 @@ fun VoucherDetailedCard(
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text(v.lotNumber, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                            Text(v.lotNumber, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -275,14 +284,16 @@ fun VoucherDetailedCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(v.description, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            WrapRow(horizontalSpacing = 8.dp, verticalSpacing = 4.dp) {
                 val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(v.date))
                 Text("Date: $dateStr | Party: ${v.partyName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (v.quantity > 0) {
                     Text(
                         "${v.quantity.toInt()} ${v.unitMeasure} @ $${v.unitRate}",
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -292,10 +303,7 @@ fun VoucherDetailedCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Journal Lines
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            WrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
                 OutlinedButton(
                     onClick = {
                         val body = ReportText.voucher(voucherWithLines, accounts)
@@ -325,24 +333,20 @@ fun VoucherDetailedCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "${acc?.code ?: ""} - ${acc?.name ?: "Account #${line.accountId}"}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (line.memo.isNotEmpty()) {
-                            Text(line.memo, style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(line.memo, style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(
-                            if (line.debit > 0) formatCurrency(line.debit) else "-",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (line.debit > 0) Emerald500 else Color.Gray
-                        )
-                        Text(
-                            if (line.credit > 0) formatCurrency(line.credit) else "-",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (line.credit > 0) Rose500 else Color.Gray
-                        )
-                    }
+                    DebitCreditPair(
+                        debit = if (line.debit > 0) formatCurrency(line.debit) else "-",
+                        credit = if (line.credit > 0) formatCurrency(line.credit) else "-",
+                        debitColor = if (line.debit > 0) Emerald500 else Color.Gray,
+                        creditColor = if (line.credit > 0) Rose500 else Color.Gray
+                    )
                 }
             }
         }
@@ -454,22 +458,26 @@ private fun NewCategorizedVoucherDialog(
                 item { OutlinedTextField(value = lotNumber, onValueChange = { lotNumber = it }, label = { Text("Linked Lot Number (Optional)") }, modifier = Modifier.fillMaxWidth()) }
 
                 item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = quantityStr,
-                            onValueChange = { quantityStr = it },
-                            label = { Text("Quantitative Qty") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = unitRateStr,
-                            onValueChange = { unitRateStr = it },
-                            label = { Text("Unit Rate ($)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    FormPairRow(
+                        first = { fieldMod ->
+                            OutlinedTextField(
+                                value = quantityStr,
+                                onValueChange = { quantityStr = it },
+                                label = { Text("Quantitative Qty") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = fieldMod
+                            )
+                        },
+                        second = { fieldMod ->
+                            OutlinedTextField(
+                                value = unitRateStr,
+                                onValueChange = { unitRateStr = it },
+                                label = { Text("Unit Rate ($)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = fieldMod
+                            )
+                        }
+                    )
                 }
 
                 item {
@@ -485,10 +493,14 @@ private fun NewCategorizedVoucherDialog(
                     ) {
                         Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             AccountDropdown(accounts = accounts, selectedAccountId = line.accountId, onSelect = { line.accountId = it })
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(value = line.debitStr, onValueChange = { line.debitStr = it }, label = { Text("Debit ($)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-                                OutlinedTextField(value = line.creditStr, onValueChange = { line.creditStr = it }, label = { Text("Credit ($)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-                            }
+                            FormPairRow(
+                                first = { fieldMod ->
+                                    OutlinedTextField(value = line.debitStr, onValueChange = { line.debitStr = it }, label = { Text("Debit ($)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = fieldMod)
+                                },
+                                second = { fieldMod ->
+                                    OutlinedTextField(value = line.creditStr, onValueChange = { line.creditStr = it }, label = { Text("Credit ($)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = fieldMod)
+                                }
+                            )
                             OutlinedTextField(value = line.memo, onValueChange = { line.memo = it }, label = { Text("Line memo") }, modifier = Modifier.fillMaxWidth())
                         }
                     }

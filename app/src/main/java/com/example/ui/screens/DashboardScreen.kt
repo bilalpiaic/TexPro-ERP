@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AccountWithBalance
@@ -58,11 +59,16 @@ import com.example.data.model.SaleOrderEntity
 import com.example.data.model.TextileInventorySummary
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
+import com.example.ui.components.AdaptiveGrid
 import com.example.ui.components.BalanceCheckBanner
+import com.example.ui.components.MetricColumn
 import com.example.ui.components.PageHeader
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.StatCard
+import com.example.ui.components.WidthClass
+import com.example.ui.components.columns
 import com.example.ui.components.formatCurrency
+import com.example.ui.components.rememberWidthClass
 import com.example.ui.export.ReportText
 import com.example.ui.theme.Amber500
 import com.example.ui.theme.Blue500
@@ -93,6 +99,7 @@ fun DashboardScreen(
 ) {
     val totalCashBank = (balanceSheet?.assets?.find { it.account.code == "1010" }?.currentBalance ?: 0.0) +
             (balanceSheet?.assets?.find { it.account.code == "1020" }?.currentBalance ?: 0.0)
+    val widthClass = rememberWidthClass()
 
     LazyColumn(
         modifier = modifier
@@ -137,19 +144,23 @@ fun DashboardScreen(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "TEXPRO ERP • TEXTILE MANUFACTURING & ACCOUNTING",
                                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp, fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "Mill Operations & Ledger",
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         Box(
@@ -165,13 +176,17 @@ fun DashboardScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        QuickMetric(label = "Cash & Bank", value = formatCurrency(totalCashBank), modifier = Modifier.weight(1f))
-                        QuickMetric(label = "Net Income (P&L)", value = formatCurrency(incomeStatement?.netIncome ?: 0.0), isPositive = true, modifier = Modifier.weight(1f))
-                        QuickMetric(label = "Active Lots", value = "${lots.size} in sequence", modifier = Modifier.weight(1f))
+                    AdaptiveGrid(
+                        itemCount = 3,
+                        columns = widthClass.columns(compact = 1, medium = 3, expanded = 3),
+                        horizontalSpacing = 10.dp,
+                        verticalSpacing = 10.dp
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> QuickMetric(label = "Cash & Bank", value = formatCurrency(totalCashBank), modifier = itemMod)
+                            1 -> QuickMetric(label = "Net Income (P&L)", value = formatCurrency(incomeStatement?.netIncome ?: 0.0), isPositive = true, modifier = itemMod)
+                            else -> QuickMetric(label = "Active Lots", value = "${lots.size} in sequence", modifier = itemMod)
+                        }
                     }
                 }
             }
@@ -198,50 +213,57 @@ fun DashboardScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("QUANTITATIVE & FINANCIAL INVENTORY", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                            Text("Lot-Wise Pipeline Valuation", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("QUANTITATIVE & FINANCIAL INVENTORY", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("Lot-Wise Pipeline Valuation", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         Text(
                             formatCurrency(inventorySummary?.totalInventoryValue ?: 0.0),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Emerald500)
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Emerald500, fontFeatureSettings = "tnum"),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InventoryStagePill(
-                            stage = "1. Grey Cloth",
-                            qty = "${inventorySummary?.greyClothMeters?.toInt() ?: 0} m",
-                            value = formatCurrency(inventorySummary?.greyClothValue ?: 0.0),
-                            color = Blue500,
-                            modifier = Modifier.weight(1f)
-                        )
-                        InventoryStagePill(
-                            stage = "2. WIP Dye/Print",
-                            qty = "${inventorySummary?.wipProcessingMeters?.toInt() ?: 0} m",
-                            value = formatCurrency(inventorySummary?.wipProcessingValue ?: 0.0),
-                            color = Amber500,
-                            modifier = Modifier.weight(1f)
-                        )
-                        InventoryStagePill(
-                            stage = "3. Fin. Fabric",
-                            qty = "${inventorySummary?.finishedFabricMeters?.toInt() ?: 0} m",
-                            value = formatCurrency(inventorySummary?.finishedFabricValue ?: 0.0),
-                            color = Indigo500,
-                            modifier = Modifier.weight(1f)
-                        )
-                        InventoryStagePill(
-                            stage = "4. Fin. Goods",
-                            qty = "${inventorySummary?.finishedGoodsPieces ?: 0} pcs",
-                            value = formatCurrency(inventorySummary?.finishedGoodsValue ?: 0.0),
-                            color = Emerald500,
-                            modifier = Modifier.weight(1f)
-                        )
+                    AdaptiveGrid(
+                        itemCount = 4,
+                        columns = widthClass.columns(compact = 2, medium = 4, expanded = 4)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> InventoryStagePill(
+                                stage = "1. Grey Cloth",
+                                qty = "${inventorySummary?.greyClothMeters?.toInt() ?: 0} m",
+                                value = formatCurrency(inventorySummary?.greyClothValue ?: 0.0),
+                                color = Blue500,
+                                modifier = itemMod
+                            )
+                            1 -> InventoryStagePill(
+                                stage = "2. WIP Dye/Print",
+                                qty = "${inventorySummary?.wipProcessingMeters?.toInt() ?: 0} m",
+                                value = formatCurrency(inventorySummary?.wipProcessingValue ?: 0.0),
+                                color = Amber500,
+                                modifier = itemMod
+                            )
+                            2 -> InventoryStagePill(
+                                stage = "3. Fin. Fabric",
+                                qty = "${inventorySummary?.finishedFabricMeters?.toInt() ?: 0} m",
+                                value = formatCurrency(inventorySummary?.finishedFabricValue ?: 0.0),
+                                color = Indigo500,
+                                modifier = itemMod
+                            )
+                            else -> InventoryStagePill(
+                                stage = "4. Fin. Goods",
+                                qty = "${inventorySummary?.finishedGoodsPieces ?: 0} pcs",
+                                value = formatCurrency(inventorySummary?.finishedGoodsValue ?: 0.0),
+                                color = Emerald500,
+                                modifier = itemMod
+                            )
+                        }
                     }
                 }
             }
@@ -255,17 +277,18 @@ fun DashboardScreen(
                 actionText = "Open journal",
                 onActionClick = onNavigateToVouchers
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VoucherButton("JV", "Journal", Indigo500, onClick = { onOpenNewVoucherDialog(VoucherType.JV) }, modifier = Modifier.weight(1f))
-                    VoucherButton("CR", "Cash Receipt", Emerald500, onClick = { onOpenNewVoucherDialog(VoucherType.CR) }, modifier = Modifier.weight(1f))
-                    VoucherButton("CP", "Cash Payment", Rose500, onClick = { onOpenNewVoucherDialog(VoucherType.CP) }, modifier = Modifier.weight(1f))
-                    VoucherButton("BR", "Bank Receipt", Blue500, onClick = { onOpenNewVoucherDialog(VoucherType.BR) }, modifier = Modifier.weight(1f))
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VoucherButton("BP", "Bank Payment", Amber500, onClick = { onOpenNewVoucherDialog(VoucherType.BP) }, modifier = Modifier.weight(1f))
-                    VoucherButton("Sale", "Sale Voucher", Emerald500, isMajor = true, onClick = { onOpenNewVoucherDialog(VoucherType.SALE) }, modifier = Modifier.weight(1.5f))
-                    VoucherButton("Purchase", "Grey Purchase", Blue500, isMajor = true, onClick = { onOpenNewVoucherDialog(VoucherType.PURCHASE) }, modifier = Modifier.weight(1.5f))
+            AdaptiveGrid(
+                itemCount = 7,
+                columns = widthClass.columns(compact = 2, medium = 4, expanded = 4)
+            ) { index, itemMod ->
+                when (index) {
+                    0 -> VoucherButton("JV", "Journal", Indigo500, onClick = { onOpenNewVoucherDialog(VoucherType.JV) }, modifier = itemMod)
+                    1 -> VoucherButton("CR", "Cash Receipt", Emerald500, onClick = { onOpenNewVoucherDialog(VoucherType.CR) }, modifier = itemMod)
+                    2 -> VoucherButton("CP", "Cash Payment", Rose500, onClick = { onOpenNewVoucherDialog(VoucherType.CP) }, modifier = itemMod)
+                    3 -> VoucherButton("BR", "Bank Receipt", Blue500, onClick = { onOpenNewVoucherDialog(VoucherType.BR) }, modifier = itemMod)
+                    4 -> VoucherButton("BP", "Bank Payment", Amber500, onClick = { onOpenNewVoucherDialog(VoucherType.BP) }, modifier = itemMod)
+                    5 -> VoucherButton("Sale", "Sale Voucher", Emerald500, isMajor = true, onClick = { onOpenNewVoucherDialog(VoucherType.SALE) }, modifier = itemMod)
+                    else -> VoucherButton("Purchase", "Grey Purchase", Blue500, isMajor = true, onClick = { onOpenNewVoucherDialog(VoucherType.PURCHASE) }, modifier = itemMod)
                 }
             }
         }
@@ -336,18 +359,29 @@ fun DashboardScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(v.voucherNumber, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                Text(
+                                    v.voucherNumber,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                                 if (v.lotNumber.isNotEmpty()) {
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("• ${v.lotNumber}", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary))
+                                    Text(
+                                        "• ${v.lotNumber}",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                             Text(
                                 v.description,
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -356,13 +390,17 @@ fun DashboardScreen(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             formatCurrency(v.totalAmount),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (v.quantity > 0) {
                             Text(
                                 "${v.quantity.toInt()} ${v.unitMeasure}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -381,13 +419,22 @@ private fun QuickMetric(label: String, value: String, isPositive: Boolean = fals
             .padding(10.dp)
     ) {
         Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(
                 value,
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.Bold,
+                    fontFeatureSettings = "tnum",
                     color = if (isPositive) Emerald500 else MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -402,9 +449,9 @@ private fun InventoryStagePill(stage: String, qty: String, value: String, color:
             .padding(8.dp)
     ) {
         Column {
-            Text(stage, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = color)
-            Text(qty, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-            Text(value, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stage, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(qty, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -424,8 +471,8 @@ private fun VoucherButton(code: String, label: String, color: Color, isMajor: Bo
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(code, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold), color = color)
-            Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = color)
+            Text(code, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold), color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -456,10 +503,10 @@ fun LotSummaryCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -469,14 +516,18 @@ fun LotSummaryCard(
                         Text(
                             lot.lotNumber,
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = stageColor
+                            color = stageColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         "SO: ${lot.saleOrderNumber}",
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -488,7 +539,9 @@ fun LotSummaryCard(
                 ) {
                     Text(
                         lot.stage.displayName.uppercase(Locale.US),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -505,26 +558,34 @@ fun LotSummaryCard(
             )
 
             Spacer(modifier = Modifier.height(10.dp))
-            Row(
+            val lotWidthClass = rememberWidthClass()
+            val revText = if (lot.saleTotalRevenue > 0) "${formatCurrency(lot.saleTotalRevenue)} (+${String.format(Locale.US, "%.1f", lot.grossMarginPercent)}%)" else "-"
+            AdaptiveGrid(
+                itemCount = 3,
+                columns = lotWidthClass.columns(compact = 1, medium = 3, expanded = 3),
                 modifier = Modifier
-                    .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Grey Input", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${lot.greyMeters.toInt()}m (${formatCurrency(lot.greyTotalCost)})", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                }
-                Column {
-                    Text("Accumulated Cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatCurrency(lot.totalCost), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(if (lot.stage == LotStage.DISPATCHED_SOLD) "Revenue / Margin" else "Expected Revenue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val revText = if (lot.saleTotalRevenue > 0) "${formatCurrency(lot.saleTotalRevenue)} (+${String.format(Locale.US, "%.1f", lot.grossMarginPercent)}%)" else "-"
-                    Text(revText, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Emerald500))
+                    .padding(8.dp)
+            ) { index, itemMod ->
+                when (index) {
+                    0 -> MetricColumn(
+                        label = "Grey Input",
+                        value = "${lot.greyMeters.toInt()}m (${formatCurrency(lot.greyTotalCost)})",
+                        modifier = itemMod
+                    )
+                    1 -> MetricColumn(
+                        label = "Accumulated Cost",
+                        value = formatCurrency(lot.totalCost),
+                        modifier = itemMod
+                    )
+                    else -> MetricColumn(
+                        label = if (lot.stage == LotStage.DISPATCHED_SOLD) "Revenue / Margin" else "Expected Revenue",
+                        value = revText,
+                        valueColor = Emerald500,
+                        alignEnd = lotWidthClass != WidthClass.Compact,
+                        modifier = itemMod
+                    )
                 }
             }
         }

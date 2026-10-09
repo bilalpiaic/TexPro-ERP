@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AccountType
@@ -62,10 +63,18 @@ import com.example.data.model.TextileInventorySummary
 import com.example.data.model.TrialBalanceData
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
+import com.example.ui.components.AdaptiveGrid
 import com.example.ui.components.BalanceCheckBanner
 import com.example.ui.components.CurrencyTogglePill
 import com.example.ui.components.DateRangeFilterHeader
+import com.example.ui.components.DebitCreditPair
+import com.example.ui.components.LabelValueRow
+import com.example.ui.components.MetricColumn
 import com.example.ui.components.PageHeader
+import com.example.ui.components.WrapRow
+import com.example.ui.components.columns
+import com.example.ui.components.isCompact
+import com.example.ui.components.rememberWidthClass
 import com.example.ui.export.ReportText
 import com.example.ui.components.formatCurrency
 import com.example.ui.components.formatDualCurrency
@@ -373,18 +382,21 @@ private fun GeneralLedgerAccountDrilldownView(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Opening Balance", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRs(openingBalance), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                        }
-                        Column {
-                            Text("Period Debits (+)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRs(totalPeriodDr), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Emerald500))
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Period Credits (-)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRs(totalPeriodCr), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Rose500))
+                    val glWidthClass = rememberWidthClass()
+                    AdaptiveGrid(
+                        itemCount = 3,
+                        columns = glWidthClass.columns(compact = 1, medium = 3, expanded = 3)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> MetricColumn("Opening Balance", formatRs(openingBalance), modifier = itemMod)
+                            1 -> MetricColumn("Period Debits (+)", formatRs(totalPeriodDr), valueColor = Emerald500, modifier = itemMod)
+                            else -> MetricColumn(
+                                "Period Credits (-)",
+                                formatRs(totalPeriodCr),
+                                valueColor = Rose500,
+                                alignEnd = !glWidthClass.isCompact,
+                                modifier = itemMod
+                            )
                         }
                     }
                 }
@@ -405,12 +417,12 @@ private fun GeneralLedgerAccountDrilldownView(
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(row.date))
-                            Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
@@ -418,15 +430,20 @@ private fun GeneralLedgerAccountDrilldownView(
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Text("${row.voucherType.code}: ${row.voucherNumber}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                Text("${row.voucherType.code}: ${row.voucherNumber}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             if (row.lotNumber.isNotEmpty()) {
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("• ${row.lotNumber}", style = MaterialTheme.typography.labelSmall.copy(color = Amber500, fontWeight = FontWeight.Bold))
+                                Text("• ${row.lotNumber}", style = MaterialTheme.typography.labelSmall.copy(color = Amber500, fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
 
-                        Text("Bal: ${formatRs(row.runningBalance)}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(
+                            "Bal: ${formatRs(row.runningBalance)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -514,26 +531,29 @@ private fun DebtorsLedgerDualCurrencyView(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Total Billed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
+                    val arWidthClass = rememberWidthClass()
+                    AdaptiveGrid(
+                        itemCount = 3,
+                        columns = arWidthClass.columns(compact = 1, medium = 3, expanded = 3)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> MetricColumn(
+                                "Total Billed",
                                 if (isUsdPreferred) formatUsd(totalBilledRs / exchangeRate) else formatRs(totalBilledRs),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                modifier = itemMod
                             )
-                        }
-                        Column {
-                            Text("Total Received", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
+                            1 -> MetricColumn(
+                                "Total Received",
                                 if (isUsdPreferred) formatUsd(totalReceivedRs / exchangeRate) else formatRs(totalReceivedRs),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Emerald500)
+                                valueColor = Emerald500,
+                                modifier = itemMod
                             )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Net Outstanding (AR)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
+                            else -> MetricColumn(
+                                "Net Outstanding (AR)",
                                 if (isUsdPreferred) formatUsd(netOutstandingRs / exchangeRate) else formatRs(netOutstandingRs),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = Blue500)
+                                valueColor = Blue500,
+                                alignEnd = !arWidthClass.isCompact,
+                                modifier = itemMod
                             )
                         }
                     }
@@ -753,12 +773,17 @@ private fun StockMovementReportView(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 4-Column Stock Matrix: Opening, Inward, Outward, Closing
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        StockMovementColumn("Opening", "${row.openingQty.toInt()}", formatRs(row.openingValueRs))
-                        StockMovementColumn("Inward (+)", "${row.inwardQty.toInt()}", formatRs(row.inwardValueRs), isPositive = true)
-                        StockMovementColumn("Outward (-)", "${row.outwardQty.toInt()}", formatRs(row.outwardValueRs), isNegative = true)
-                        StockMovementColumn("Closing Stock", "${row.closingQty.toInt()}", formatRs(row.closingValueRs), isHighlight = true)
+                    val stockWidthClass = rememberWidthClass()
+                    AdaptiveGrid(
+                        itemCount = 4,
+                        columns = stockWidthClass.columns(compact = 2, medium = 4, expanded = 4)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> StockMovementColumn("Opening", "${row.openingQty.toInt()}", formatRs(row.openingValueRs), modifier = itemMod)
+                            1 -> StockMovementColumn("Inward (+)", "${row.inwardQty.toInt()}", formatRs(row.inwardValueRs), isPositive = true, modifier = itemMod)
+                            2 -> StockMovementColumn("Outward (-)", "${row.outwardQty.toInt()}", formatRs(row.outwardValueRs), isNegative = true, modifier = itemMod)
+                            else -> StockMovementColumn("Closing Stock", "${row.closingQty.toInt()}", formatRs(row.closingValueRs), isHighlight = true, modifier = itemMod)
+                        }
                     }
                 }
             }
@@ -767,17 +792,34 @@ private fun StockMovementReportView(
 }
 
 @Composable
-private fun StockMovementColumn(label: String, qty: String, value: String, isPositive: Boolean = false, isNegative: Boolean = false, isHighlight: Boolean = false) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun StockMovementColumn(
+    label: String,
+    qty: String,
+    value: String,
+    isPositive: Boolean = false,
+    isNegative: Boolean = false,
+    isHighlight: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
             qty,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.Bold,
+                fontFeatureSettings = "tnum",
                 color = if (isPositive) Emerald500 else if (isNegative) Rose500 else if (isHighlight) Blue500 else MaterialTheme.colorScheme.onSurface
-            )
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Text(value, style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, fontFeatureSettings = "tnum"),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -835,17 +877,19 @@ private fun TrialBalanceReportView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("${acc.code} - ${acc.name}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Text("${acc.code} - ${acc.name}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(acc.type.displayName, style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(if (dr > 0) formatRs(dr) else "-", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = if (dr > 0) Emerald500 else Color.Gray))
-                        Text(if (cr > 0) formatRs(cr) else "-", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = if (cr > 0) Rose500 else Color.Gray))
-                    }
+                    DebitCreditPair(
+                        debit = if (dr > 0) formatRs(dr) else "-",
+                        credit = if (cr > 0) formatRs(cr) else "-",
+                        debitColor = if (dr > 0) Emerald500 else Color.Gray,
+                        creditColor = if (cr > 0) Rose500 else Color.Gray
+                    )
                 }
             }
         }
@@ -856,16 +900,43 @@ private fun TrialBalanceReportView(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("TOTALS (DEBITS == CREDITS)", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(formatRs(totalDr), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Emerald500))
-                        Text(formatRs(totalCr), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Rose500))
+                val totalsWidthClass = rememberWidthClass()
+                if (totalsWidthClass.isCompact) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("TOTALS (DEBITS == CREDITS)", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold))
+                        DebitCreditPair(
+                            debit = formatRs(totalDr),
+                            credit = formatRs(totalCr),
+                            debitColor = Emerald500,
+                            creditColor = Rose500
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "TOTALS (DEBITS == CREDITS)",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        DebitCreditPair(
+                            debit = formatRs(totalDr),
+                            credit = formatRs(totalCr),
+                            debitColor = Emerald500,
+                            creditColor = Rose500
+                        )
                     }
                 }
             }
@@ -1060,13 +1131,9 @@ private fun LotProfitabilityReportView(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            WrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
                 Column {
-                    Text("LOT-WISE QUANTITATIVE & FINANCIAL PROFITABILITY", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                    Text("LOT-WISE QUANTITATIVE & FINANCIAL PROFITABILITY", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text("Backed by Sale Order (Start till End)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 CurrencyTogglePill(
@@ -1099,42 +1166,43 @@ private fun LotProfitabilityReportView(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Grey Cloth Cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${fmt(lot.greyTotalCost)} (${lot.greyMeters.toInt()}m)", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                        }
-                        Column {
-                            Text("Dye/Print Cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(fmt(lot.processingTotalCost), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                        }
-                        Column {
-                            Text("CMT Stitching", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(fmt(lot.stitchingTotalCost), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                    val lotWidthClass = rememberWidthClass()
+                    AdaptiveGrid(
+                        itemCount = 3,
+                        columns = lotWidthClass.columns(compact = 1, medium = 3, expanded = 3)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> MetricColumn("Grey Cloth Cost", "${fmt(lot.greyTotalCost)} (${lot.greyMeters.toInt()}m)", modifier = itemMod)
+                            1 -> MetricColumn("Dye/Print Cost", fmt(lot.processingTotalCost), modifier = itemMod)
+                            else -> MetricColumn("CMT Stitching", fmt(lot.stitchingTotalCost), modifier = itemMod)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(
+                    val mText = if (lot.saleTotalRevenue > 0) "${fmt(lot.grossProfit)} (${String.format(Locale.US, "%.1f", lot.grossMarginPercent)}%)" else "-"
+                    AdaptiveGrid(
+                        itemCount = 3,
+                        columns = lotWidthClass.columns(compact = 1, medium = 3, expanded = 3),
                         modifier = Modifier
-                            .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Total Mfg Cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(fmt(lot.totalCost), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        }
-                        Column {
-                            Text("Sales Revenue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(if (lot.saleTotalRevenue > 0) fmt(lot.saleTotalRevenue) else "-", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Emerald500))
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Realized Margin", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            val mText = if (lot.saleTotalRevenue > 0) "${fmt(lot.grossProfit)} (${String.format(Locale.US, "%.1f", lot.grossMarginPercent)}%)" else "-"
-                            Text(mText, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = if (lot.grossProfit >= 0) Emerald500 else Rose500))
+                            .padding(8.dp)
+                    ) { index, itemMod ->
+                        when (index) {
+                            0 -> MetricColumn("Total Mfg Cost", fmt(lot.totalCost), modifier = itemMod)
+                            1 -> MetricColumn(
+                                "Sales Revenue",
+                                if (lot.saleTotalRevenue > 0) fmt(lot.saleTotalRevenue) else "-",
+                                valueColor = Emerald500,
+                                modifier = itemMod
+                            )
+                            else -> MetricColumn(
+                                "Realized Margin",
+                                mText,
+                                valueColor = if (lot.grossProfit >= 0) Emerald500 else Rose500,
+                                alignEnd = !lotWidthClass.isCompact,
+                                modifier = itemMod
+                            )
                         }
                     }
                 }
@@ -1145,23 +1213,12 @@ private fun LotProfitabilityReportView(
 
 @Composable
 private fun ReportRow(label: String, value: String, isPositive: Boolean, isBold: Boolean = false, isHeadline: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = if (isHeadline) 6.dp else 3.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            label,
-            style = if (isHeadline) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
-            else if (isBold) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-            else MaterialTheme.typography.bodyMedium
-        )
-        Text(
-            value,
-            style = if (isHeadline) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = if (isPositive) Emerald500 else Rose500)
-            else if (isBold) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = if (isPositive) Emerald500 else Rose500)
-            else MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = if (isPositive) Emerald500 else Rose500)
-        )
-    }
+    LabelValueRow(
+        label = label,
+        value = value,
+        valueColor = if (isPositive) Emerald500 else Rose500,
+        isBold = isBold,
+        isHeadline = isHeadline,
+        modifier = Modifier.padding(vertical = if (isHeadline) 6.dp else 3.dp)
+    )
 }
