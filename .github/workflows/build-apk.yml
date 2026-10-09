@@ -56,7 +56,7 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF_NAME}"
             TITLE="TexPro ERP ${TAG}"
-            NOTES="Standalone Android APK for sideloading. Enable Install unknown apps, then open TexPro-ERP.apk on the phone."
+            NOTES="Standalone Android APK (arm64, not debuggable) for phones such as Samsung Galaxy A56. Turn off Auto Blocker, allow Install unknown apps, then open TexPro-ERP.apk. Do not use app-debug.apk from older tags."
           else
             TAG="sideload"
             TITLE="TexPro ERP sideload APK"
