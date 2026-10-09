@@ -15,7 +15,7 @@ This repo builds an installable **`TexPro-ERP.apk`** you can copy to a phone. It
 
 ### Persistent download (GitHub Release)
 
-- Push a tag such as `v1.1.0`, **or** run the workflow with **Run workflow**.
+- Push a tag such as `v1.1.1`, **or** run the workflow with **Run workflow**.
 - That publishes `TexPro-ERP.apk` on the repository **Releases** page. Use that file, not `app-debug.apk`.
 - Manual runs update the `sideload` release, so the file URL stays:
 

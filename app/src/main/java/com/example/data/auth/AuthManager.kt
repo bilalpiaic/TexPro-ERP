@@ -18,26 +18,45 @@ import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 
 private const val TAG = "AuthManager"
 
 class AuthManager(private val context: Context) {
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val credentialManager: CredentialManager = CredentialManager.create(context)
+    private val firebaseReady = isFirebaseReady(context)
+    private val auth: FirebaseAuth? = if (firebaseReady) {
+        try {
+            FirebaseAuth.getInstance()
+        } catch (e: Exception) {
+            Log.w(TAG, "FirebaseAuth unavailable: ${e.message}")
+            null
+        }
+    } else {
+        null
+    }
+    private val credentialManager: CredentialManager by lazy { CredentialManager.create(context) }
 
     val currentUser: FirebaseUser?
-        get() = auth.currentUser
+        get() = auth?.currentUser
 
-    val authState: Flow<FirebaseUser?> = callbackFlow {
-        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-            trySend(firebaseAuth.currentUser)
+    val authState: Flow<FirebaseUser?> = auth?.let { firebaseAuth ->
+        callbackFlow {
+            val listener = FirebaseAuth.AuthStateListener { authInstance ->
+                trySend(authInstance.currentUser)
+            }
+            firebaseAuth.addAuthStateListener(listener)
+            awaitClose { firebaseAuth.removeAuthStateListener(listener) }
         }
-        auth.addAuthStateListener(listener)
-        awaitClose { auth.removeAuthStateListener(listener) }
-    }
+    } ?: flowOf(null)
 
     suspend fun signInWithGoogle(activity: Activity): Result<FirebaseUser> {
+        val firebaseAuth = auth
+            ?: return Result.failure(
+                IllegalStateException(
+                    "Google Sign-In is not configured. Add google-services.json from Firebase Console."
+                )
+            )
         return try {
             val serverClientId = resolveWebClientId()
                 ?: return Result.failure(
@@ -59,7 +78,7 @@ class AuthManager(private val context: Context) {
                         val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                         val idToken = googleIdTokenCredential.idToken
                         val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
-                        val authResult = auth.signInWithCredential(firebaseCredential).await()
+                        val authResult = firebaseAuth.signInWithCredential(firebaseCredential).await()
                         val user = authResult.user ?: throw IllegalStateException("FirebaseUser is null after Google sign-in")
                         Result.success(user)
                     } else {
@@ -81,7 +100,7 @@ class AuthManager(private val context: Context) {
     }
 
     fun signOut() {
-        auth.signOut()
+        auth?.signOut()
     }
 
     /**
@@ -89,7 +108,7 @@ class AuthManager(private val context: Context) {
      * still authenticated. Re-authentication is required if the session is stale.
      */
     suspend fun deleteAccount(): Result<Unit> {
-        val user = auth.currentUser
+        val user = auth?.currentUser
             ?: return Result.failure(IllegalStateException("Not signed in"))
         return try {
             user.delete().await()

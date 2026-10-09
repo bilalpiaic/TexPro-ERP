@@ -26,6 +26,7 @@ import com.example.data.model.VoucherWithLines
 import com.example.data.repository.ErpRepository
 import com.example.data.repository.FirestoreSaasRepository
 import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -94,7 +95,7 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     val userFeedbackMessage = _userFeedbackMessage.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.initializeSeedDataIfEmpty()
         }
     }
