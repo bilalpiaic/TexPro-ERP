@@ -59,9 +59,11 @@ import com.example.data.model.TextileInventorySummary
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
 import com.example.ui.components.BalanceCheckBanner
+import com.example.ui.components.PageHeader
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.StatCard
 import com.example.ui.components.formatCurrency
+import com.example.ui.export.ReportText
 import com.example.ui.theme.Amber500
 import com.example.ui.theme.Blue500
 import com.example.ui.theme.Emerald500
@@ -74,6 +76,7 @@ import java.util.Locale
 
 @Composable
 fun DashboardScreen(
+    organizationName: String = "TexPro mill books",
     balanceSheet: BalanceSheetData?,
     incomeStatement: IncomeStatementData?,
     inventorySummary: TextileInventorySummary?,
@@ -98,6 +101,28 @@ fun DashboardScreen(
         contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            PageHeader(
+                eyebrow = "Home",
+                title = "Mill books at a glance",
+                description = "Cash, profit, inventory, and open lots. Use Orders to book a sale, Production to move a lot, Journal to post a voucher, and Reports for IAS-style statements.",
+                printTitle = "TexPro dashboard",
+                reportText = {
+                    ReportText.dashboard(
+                        orgName = organizationName,
+                        balanceSheet = balanceSheet,
+                        income = incomeStatement,
+                        inventory = inventorySummary,
+                        health = healthRatios,
+                        lots = lots,
+                        saleOrders = saleOrders
+                    )
+                },
+                primaryActionLabel = "New sale order",
+                onPrimaryAction = onNavigateToSaleOrders
+            )
+        }
+
         // Hero Header Card
         item {
             Card(
@@ -225,9 +250,9 @@ fun DashboardScreen(
         // Categorized Voucher Quick Launchers (JV, CR, CP, BP, BR, Sale, Purchase)
         item {
             SectionHeader(
-                title = "Categorized General Vouchers",
-                subtitle = "7 Standard Voucher Classes",
-                actionText = "General Journal",
+                title = "Post a voucher",
+                subtitle = "Standard classes: JV, CR, CP, BP, BR, Sale, Purchase. Each posting must balance Debit = Credit.",
+                actionText = "Open journal",
                 onActionClick = onNavigateToVouchers
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -42,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,7 +66,10 @@ import com.example.data.model.VoucherEntity
 import com.example.data.model.VoucherLineEntity
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
+import com.example.ui.components.PageHeader
 import com.example.ui.components.formatCurrency
+import com.example.ui.export.ReportExport
+import com.example.ui.export.ReportText
 import com.example.ui.theme.Amber500
 import com.example.ui.theme.Blue500
 import com.example.ui.theme.Emerald500
@@ -140,10 +145,22 @@ fun VouchersJournalScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    Text(
-                        "${filteredVouchers.size} General Journal Entries Posted",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    PageHeader(
+                        eyebrow = "Input · General journal",
+                        title = "Vouchers",
+                        description = "Post JV, cash, bank, sale, and purchase vouchers. Every entry must balance (total debit = total credit). Print or save a voucher from its card.",
+                        printTitle = "General journal",
+                        reportText = {
+                            buildString {
+                                appendLine("GENERAL JOURNAL (${filteredVouchers.size} entries)")
+                                filteredVouchers.take(50).forEach { v ->
+                                    appendLine(ReportText.voucher(v, accounts))
+                                    appendLine("----")
+                                }
+                            }
+                        },
+                        primaryActionLabel = "New voucher",
+                        onPrimaryAction = { showNewVoucherDialog = true }
                     )
                 }
 
@@ -186,6 +203,7 @@ fun VoucherDetailedCard(
     voucherWithLines: VoucherWithLines,
     accounts: List<AccountWithBalance>
 ) {
+    val context = LocalContext.current
     val v = voucherWithLines.voucher
     val accountsMap = remember(accounts) { accounts.associate { it.account.id to it.account } }
 
@@ -274,6 +292,27 @@ fun VoucherDetailedCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Journal Lines
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        val body = ReportText.voucher(voucherWithLines, accounts)
+                        ReportExport.printHtml(context, v.voucherNumber, ReportExport.htmlFromPlain(body))
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("Print") }
+                OutlinedButton(
+                    onClick = {
+                        ReportExport.sharePlainText(context, v.voucherNumber, ReportText.voucher(voucherWithLines, accounts))
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("Save") }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             voucherWithLines.lines.forEach { line ->
                 val acc = accountsMap[line.accountId]
                 Row(

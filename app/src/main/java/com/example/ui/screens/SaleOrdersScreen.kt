@@ -49,7 +49,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SaleOrderEntity
+import com.example.ui.components.LabeledField
+import com.example.ui.components.PageHeader
 import com.example.ui.components.formatCurrency
+import com.example.ui.export.ReportText
 import com.example.ui.theme.Amber500
 import com.example.ui.theme.Blue500
 import com.example.ui.theme.Emerald500
@@ -75,21 +78,15 @@ fun SaleOrdersScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("CUSTOMER SALE ORDERS (SO)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.primary)
-                        Text("Origin of Lot Sequence", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                    }
-                    Text(
-                        "${saleOrders.size} Customer Contracts",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                PageHeader(
+                    eyebrow = "Input · Sales",
+                    title = "Sale orders",
+                    description = "Customer contract is the start of every lot. Enter quality, blend, width, pieces, and price. Then start a production lot from the order card.",
+                    printTitle = "Sale order register",
+                    reportText = { ReportText.saleOrders(saleOrders) },
+                    primaryActionLabel = "New sale order",
+                    onPrimaryAction = { showCreateDialog = true }
+                )
             }
 
             items(saleOrders) { so ->
@@ -228,23 +225,23 @@ private fun NewSaleOrderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Book Customer Sale Order (SO)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
+        title = { Text("New sale order", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                item { OutlinedTextField(value = orderNum, onValueChange = { orderNum = it }, label = { Text("Order Number") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = customerName, onValueChange = { customerName = it }, label = { Text("Customer / Buyer Name") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = itemDesc, onValueChange = { itemDesc = it }, label = { Text("Product Description") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = quality, onValueChange = { quality = it }, label = { Text("Fabric Quality (Warp x Weft / Ends x Picks)") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = blend, onValueChange = { blend = it }, label = { Text("Fiber Blend (100% Cotton, Poly/Cotton)") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = width, onValueChange = { width = it }, label = { Text("Width (e.g. 105\", 96\", 58\")") }, modifier = Modifier.fillMaxWidth()) }
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { LabeledField("Order number", orderNum, { orderNum = it }, helper = "Unique contract reference, e.g. SO-2026-101", required = true) }
+                item { LabeledField("Customer / buyer", customerName, { customerName = it }, helper = "Legal name of the buyer for AR and the invoice", required = true) }
+                item { LabeledField("Product", itemDesc, { itemDesc = it }, helper = "What will be invoiced (bed sets, fabric, garments)") }
+                item { LabeledField("Quality", quality, { quality = it }, helper = "Warp × weft / ends × picks, e.g. 40x40 / 100x80") }
+                item { LabeledField("Blend", blend, { blend = it }, helper = "Fibre composition, e.g. 100% combed cotton") }
+                item { LabeledField("Width", width, { width = it }, helper = "Grey width in inches") }
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = piecesStr, onValueChange = { piecesStr = it }, label = { Text("Pieces / Sets") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = metersStr, onValueChange = { metersStr = it }, label = { Text("Target Grey (m)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+                        LabeledField("Pieces / sets", piecesStr, { piecesStr = it }, helper = "Finished units", required = true, keyboardType = KeyboardType.Number, modifier = Modifier.weight(1f))
+                        LabeledField("Grey metres", metersStr, { metersStr = it }, helper = "Estimated grey input", keyboardType = KeyboardType.Number, modifier = Modifier.weight(1f))
                     }
                 }
-                item { OutlinedTextField(value = priceStr, onValueChange = { priceStr = it }, label = { Text("Selling Price per Piece ($)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Special Buyer Specs / Terms") }, modifier = Modifier.fillMaxWidth()) }
+                item { LabeledField("Selling price / piece (Rs.)", priceStr, { priceStr = it }, helper = "Unit invoice price in mill currency", required = true, keyboardType = KeyboardType.Number) }
+                item { LabeledField("Terms / notes", notes, { notes = it }, helper = "Delivery, packing, or buyer specs", singleLine = false) }
             }
         },
         confirmButton = {
@@ -257,7 +254,7 @@ private fun NewSaleOrderDialog(
                         onConfirm(orderNum, customerName, itemDesc, quality, blend, width, pcs, m, p, notes)
                     }
                 }
-            ) { Text("Create Sale Order") }
+            ) { Text("Save order") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
