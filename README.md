@@ -8,31 +8,35 @@ Track a customer **sale order** through **grey cloth purchase**, **dyeing and pr
 | --- | --- |
 | Platform | Android 7.0+ (`minSdk` 24, `targetSdk` 36) |
 | Package | `com.aistudio.ledgerproerp.qzmxyt` |
-| Version | 1.0 |
+| Version | 1.1.0 |
 | Stack | Kotlin, Jetpack Compose, Room, Firebase (optional cloud) |
 
 ---
 
 ## Download the APK
 
-The installable file is **`TexPro-ERP.apk`** (about 28 MB). It is a sideload build, not a Google Play package.
+The installable file is **`TexPro-ERP.apk`**. It is a sideload build (arm64, not debuggable), not a Google Play package.
 
-**Latest CI artifact:** [Actions run #37852544710](https://github.com/bilalpiaic/TexPro-ERP/actions/runs/37852544710) → download **TexPro-ERP-apk** → unzip `TexPro-ERP.apk`.
+**Do not install** `app-debug.apk` from the `v1.0.1` GitHub Release. That debug APK is blocked on Samsung Galaxy A56 / One UI 7.
 
-Or: **Actions → Build downloadable APK** → open a green run → artifact `TexPro-ERP-apk`.
-
-After a manual **Run workflow**, a stable release URL is:
+Download from **Releases** after tag `v1.1.0`:
 
 ```text
-https://github.com/bilalpiaic/TexPro-ERP/releases/download/sideload/TexPro-ERP.apk
+https://github.com/bilalpiaic/TexPro-ERP/releases/download/v1.1.0/TexPro-ERP.apk
 ```
+
+Until that tag exists: **Actions → Build downloadable APK** → open a green run on this branch → artifact `TexPro-ERP-apk` → unzip `TexPro-ERP.apk`.
 
 ### Install on a phone
 
-1. Copy `TexPro-ERP.apk` to the device (USB, Drive, or send it to yourself).
-2. Open **Settings → Security** and allow **Install unknown apps** for Files / Chrome / Drive.
-3. Tap the APK and install **TexPro ERP**.
-4. First launch includes **sample mill data** so you can walk the workflow before entering live books.
+Use **`TexPro-ERP.apk`**, not the older GitHub Release file `app-debug.apk` (`v1.0.1`). Debug APKs are often blocked on Samsung One UI 7 (Galaxy A56).
+
+1. Uninstall any previous **TexPro ERP** / failed install.
+2. Copy `TexPro-ERP.apk` to the phone (USB, Drive, or send it to yourself).
+3. **Samsung (A56 / One UI):** Settings → **Security and privacy** → **Auto Blocker** → turn **Off**. Then Settings → **Security and privacy** → **Install unknown apps** → allow **My Files** (or Chrome / Drive).
+4. Open **Play Store → profile → Play Protect**. If it blocks the install, choose **Install anyway**.
+5. Tap `TexPro-ERP.apk` and install.
+6. First launch includes **sample mill data**.
 
 The mill ledger works offline. **Sign in with Google** needs `app/google-services.json` from Firebase.
 

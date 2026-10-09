@@ -16,10 +16,14 @@ android {
     applicationId = "com.aistudio.ledgerproerp.qzmxyt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    ndk {
+      abiFilters += listOf("arm64-v8a")
+    }
   }
 
   signingConfigs {
@@ -51,6 +55,23 @@ android {
     debug {
       isDebuggable = true
       signingConfig = signingConfigs.getByName("debug")
+    }
+    // Phone install (Samsung A56 / Android 15): not debuggable, no Compose
+    // PreviewActivity, arm64-only, 16 KB native libs. Still debug-signed so
+    // it installs without a Play upload keystore.
+    create("sideload") {
+      isDebuggable = false
+      isJniDebuggable = false
+      isMinifyEnabled = false
+      isShrinkResources = false
+      isCrunchPngs = false
+      signingConfig = signingConfigs.getByName("debug")
+      matchingFallbacks += listOf("release")
+    }
+  }
+  packaging {
+    jniLibs {
+      useLegacyPackaging = false
     }
   }
   compileOptions {
@@ -142,9 +163,9 @@ val sideloadApkDir = rootProject.layout.projectDirectory.dir("dist")
 
 tasks.register<Copy>("copySideloadApk") {
   group = "distribution"
-  description = "Copy the installable debug APK to dist/TexPro-ERP.apk"
-  dependsOn("assembleDebug")
-  from(layout.buildDirectory.dir("outputs/apk/debug"))
+  description = "Copy the installable sideload APK to dist/TexPro-ERP.apk"
+  dependsOn("assembleSideload")
+  from(layout.buildDirectory.dir("outputs/apk/sideload"))
   include("*.apk")
   exclude("*-unsigned.apk")
   into(sideloadApkDir)

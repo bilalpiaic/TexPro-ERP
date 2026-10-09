@@ -10,12 +10,13 @@ This repo builds an installable **`TexPro-ERP.apk`** you can copy to a phone. It
 2. Open a green run (or click **Run workflow**).
 3. Download the `TexPro-ERP-apk` artifact and unzip it.
 4. Copy `TexPro-ERP.apk` to an Android phone (USB, Drive, or Telegram/WhatsApp to yourself).
-5. On the phone: **Settings → Security → Install unknown apps** for the app you used to open the file, then tap the APK.
+5. On the phone: allow **Install unknown apps** for Files / Chrome / Drive, then tap the APK.
+6. On **Samsung Galaxy A-series (A56)**: also turn off **Settings → Security and privacy → Auto Blocker**. Do not use the old `app-debug.apk` from the `v1.0.1` release.
 
 ### Persistent download (GitHub Release)
 
-- Push a tag such as `v1.0.0`, **or** run the workflow with **Run workflow**.
-- That publishes `TexPro-ERP.apk` on the repository **Releases** page.
+- Push a tag such as `v1.1.0`, **or** run the workflow with **Run workflow**.
+- That publishes `TexPro-ERP.apk` on the repository **Releases** page. Use that file, not `app-debug.apk`.
 - Manual runs update the `sideload` release, so the file URL stays:
 
 ```text
