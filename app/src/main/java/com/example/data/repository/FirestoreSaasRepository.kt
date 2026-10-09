@@ -10,6 +10,7 @@ import com.example.data.model.OrgMemberRole
 import com.example.data.model.OrganizationEntity
 import com.example.data.model.SaaSUserProfile
 import com.example.data.model.SaleOrderEntity
+import com.example.data.auth.isFirebaseReady
 import com.example.data.model.VoucherWithLines
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -19,8 +20,10 @@ private const val TAG = "FirestoreSaasRepo"
 
 class FirestoreSaasRepository(private val context: Context) {
 
-    // Mandatory: Initialize Firestore with custom DB ID from firebase_applet_config.xml
     private val firestore: FirebaseFirestore by lazy {
+        check(isFirebaseReady(context)) {
+            "Firebase is not configured. Add google-services.json to use cloud sync."
+        }
         val dbId = context.getString(R.string.firestore_database_id)
         FirebaseFirestore.getInstance(dbId)
     }
