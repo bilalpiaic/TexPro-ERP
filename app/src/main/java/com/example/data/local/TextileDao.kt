@@ -59,4 +59,10 @@ interface TextileDao {
 
     @Delete
     suspend fun deleteLot(lot: LotEntity)
+
+    @Query("DELETE FROM lots")
+    suspend fun deleteAllLots()
+
+    @Query("DELETE FROM sale_orders")
+    suspend fun deleteAllSaleOrders()
 }

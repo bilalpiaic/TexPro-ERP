@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,8 +25,10 @@ import androidx.compose.material.icons.filled.AddBusiness
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.CorporateFare
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Login
@@ -59,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
@@ -67,16 +67,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.auth.SignedInAccount
 import com.example.data.model.OrgMemberRole
 import com.example.data.model.OrganizationEntity
 import com.example.ui.theme.Emerald500
-import com.google.firebase.auth.FirebaseUser
 
 @Composable
 fun OrganizationTopHeader(
     currentOrg: OrganizationEntity?,
     userRole: OrgMemberRole,
-    currentUser: FirebaseUser?,
+    signedInAccount: SignedInAccount?,
     isSyncing: Boolean,
     onOpenOrgDialog: () -> Unit,
     modifier: Modifier = Modifier
@@ -171,9 +171,9 @@ fun OrganizationTopHeader(
                     Spacer(modifier = Modifier.width(6.dp))
                 } else {
                     Icon(
-                        imageVector = if (currentUser != null) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                        contentDescription = if (currentUser != null) "Signed in" else "Local only",
-                        tint = if (currentUser != null) Emerald500 else MaterialTheme.colorScheme.outline,
+                        imageVector = if (signedInAccount != null) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        contentDescription = if (signedInAccount != null) "Signed in" else "Local only",
+                        tint = if (signedInAccount != null) Emerald500 else MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -225,24 +225,24 @@ private fun SurfaceHeaderCard(
 fun OrganizationTenantDialog(
     allOrganizations: List<OrganizationEntity>,
     currentOrg: OrganizationEntity?,
-    currentUser: FirebaseUser?,
+    signedInAccount: SignedInAccount?,
     userRole: OrgMemberRole,
     isSyncing: Boolean,
+    isSigningIn: Boolean,
     onDismiss: () -> Unit,
     onSwitchOrg: (String) -> Unit,
     onCreateOrg: (name: String, code: String, taxId: String, millAddress: String, currency: String) -> Unit,
-    onSignInWithGoogle: (Activity) -> Unit,
+    onSignInWithGoogle: () -> Unit,
     onSignOut: () -> Unit,
     onSyncCloud: () -> Unit,
+    onSaveToDrive: () -> Unit,
+    onLoadFromDrive: () -> Unit,
     onDeleteAccount: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val tabTitles = listOf("Active Tenants", "Create Organization", "Cloud & Account")
-
-    val context = LocalContext.current
-    val activity = context as? Activity
 
     // New Org form state
     var newOrgName by remember { mutableStateOf("") }
@@ -462,19 +462,19 @@ fun OrganizationTenantDialog(
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text("CLOUD DATABASE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                                     Text(
-                                        if (currentUser != null) "Signed in. Optional Firestore sync for the active organization."
-                                        else "Local mill data stays on this device until you sign in and sync.",
+                                        if (signedInAccount != null) "Signed in. Save this mill's books to your Google Drive, or sync Firestore if Firebase is configured."
+                                        else "Local mill data stays on this device until you sign in with Google.",
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
                                     )
                                     Text(
-                                        "Internet is used only for Google Sign-In and cloud sync.",
+                                        "Sign in opens the Google account picker. Each organization can be stored as TexPro ERP / {org} / texpro-ledger.json in your Drive.",
                                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
 
-                            if (currentUser != null) {
+                            if (signedInAccount != null) {
                                 Card(
                                     shape = RoundedCornerShape(10.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -490,7 +490,7 @@ fun OrganizationTenantDialog(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = (currentUser.displayName?.take(1) ?: currentUser.email?.take(1) ?: "U").uppercase(),
+                                                    text = (signedInAccount.displayName.take(1).ifBlank { signedInAccount.email.take(1) }.ifBlank { "U" }).uppercase(),
                                                     color = Color.White,
                                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                                 )
@@ -498,11 +498,11 @@ fun OrganizationTenantDialog(
                                             Spacer(modifier = Modifier.width(10.dp))
                                             Column {
                                                 Text(
-                                                    text = currentUser.displayName ?: "Authenticated User",
+                                                    text = signedInAccount.displayName.ifBlank { "Authenticated User" },
                                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                                                 )
                                                 Text(
-                                                    text = currentUser.email ?: "",
+                                                    text = signedInAccount.email,
                                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -515,13 +515,39 @@ fun OrganizationTenantDialog(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             OutlinedButton(
+                                                onClick = onSaveToDrive,
+                                                enabled = !isSyncing,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(if (isSyncing) "Saving..." else "Save to Drive", fontSize = 12.sp)
+                                            }
+
+                                            OutlinedButton(
+                                                onClick = onLoadFromDrive,
+                                                enabled = !isSyncing,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Load Drive", fontSize = 12.sp)
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
                                                 onClick = onSyncCloud,
                                                 enabled = !isSyncing,
                                                 modifier = Modifier.weight(1f)
                                             ) {
                                                 Icon(imageVector = Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(16.dp))
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text(if (isSyncing) "Syncing..." else "Sync Cloud", fontSize = 12.sp)
+                                                Text(if (isSyncing) "Syncing..." else "Sync Firestore", fontSize = 12.sp)
                                             }
 
                                             OutlinedButton(
@@ -561,26 +587,31 @@ fun OrganizationTenantDialog(
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Text("ORGANIZATION-WISE LOGIN (SAAS)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                                         Text(
-                                            "Authenticate using Google Sign-In to sync your organization's general ledger, vouchers, and production lots across devices.",
+                                            "Tap Sign in with Google to open the Google account picker. After sign-in you can keep this mill's ledger on your Google Drive.",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(10.dp))
 
                                         Button(
-                                            onClick = {
-                                                if (activity != null) {
-                                                    onSignInWithGoogle(activity)
-                                                }
-                                            },
+                                            onClick = onSignInWithGoogle,
+                                            enabled = !isSigningIn,
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .testTag("google_sign_in_button"),
                                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                         ) {
-                                            Icon(imageVector = Icons.Default.Login, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            if (isSigningIn) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(18.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                            } else {
+                                                Icon(imageVector = Icons.Default.Login, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            }
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Sign in with Google", fontWeight = FontWeight.Bold)
+                                            Text(if (isSigningIn) "Opening Google..." else "Sign in with Google", fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }

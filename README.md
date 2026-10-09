@@ -8,7 +8,7 @@ Track a customer **sale order** through **grey cloth purchase**, **dyeing and pr
 | --- | --- |
 | Platform | Android 7.0+ (`minSdk` 24, `targetSdk` 36) |
 | Package | `com.aistudio.ledgerproerp.qzmxyt` |
-| Version | 1.2.1 |
+| Version | 1.2.2 |
 | Stack | Kotlin, Jetpack Compose, Room, Firebase (optional cloud) |
 
 ---
@@ -19,17 +19,17 @@ The installable file is **`TexPro-ERP.apk`**. It is a sideload build (arm64, not
 
 **Do not install** `app-debug.apk` from the `v1.0.1` GitHub Release. That debug APK is blocked on Samsung Galaxy A56 / One UI 7.
 
-Download from **Releases** after tag `v1.2.1`:
+Download from **Releases** after tag `v1.2.2`:
 
 ```text
-https://github.com/bilalpiaic/TexPro-ERP/releases/download/v1.2.1/TexPro-ERP.apk
+https://github.com/bilalpiaic/TexPro-ERP/releases/download/v1.2.2/TexPro-ERP.apk
 ```
 
 Until that tag exists: **Actions → Build downloadable APK** → open a green run on this branch → artifact `TexPro-ERP-apk` → unzip `TexPro-ERP.apk`.
 
 ### Install on a phone
 
-Use **`TexPro-ERP.apk` 1.2.1**. Do not use `app-debug.apk` (`v1.0.1`). Version 1.1.0 closed on open; 1.1.1 and later run offline without Firebase. Layouts reflow on phone width so amounts and labels stay readable.
+Use **`TexPro-ERP.apk` 1.2.2**. Do not use `app-debug.apk` (`v1.0.1`). Version 1.1.0 closed on open; 1.1.1 and later run offline without Firebase. Layouts reflow on phone width so amounts and labels stay readable.
 
 1. Uninstall any previous **TexPro ERP** / failed install.
 2. Copy `TexPro-ERP.apk` to the phone (USB, Drive, or send it to yourself).
@@ -60,7 +60,7 @@ More deploy detail: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 **Reports** — trial balance, profit and loss, balance sheet, inventory valuation, and lot profitability.
 
-**Organizations** — create mill profiles locally. Optional Google Sign-In and Firestore sync for the active tenant.
+**Organizations** — create mill profiles locally. **Sign in with Google** opens the Google account picker. After sign-in, **Save to Drive** stores that mill's ledger in your Google Drive under `TexPro ERP / {org code} - {org name} / texpro-ledger.json`. **Load Drive** restores it. Optional Firestore sync still works when `google-services.json` is present.
 
 Accounting rules and voucher mapping: [ERP.md](ERP.md).
 
@@ -85,7 +85,7 @@ Or open the project in Android Studio and run the `app` configuration.
 | `./gradlew :app:assembleDebug` | `app/build/outputs/apk/debug/` |
 | `./gradlew :app:bundleRelease` | Play App Bundle (needs an upload keystore) |
 
-Put Firebase config at `app/google-services.json` (gitignored) if you want cloud login. Without it, local accounting still builds and runs.
+Put Firebase config at `app/google-services.json` (gitignored) if you want Firestore sync. Google Sign-In and Drive save/load work without it, as long as this app's package and SHA-1 are registered in Google Cloud Console.
 
 ---
 
