@@ -19,8 +19,11 @@ import com.example.data.model.VoucherEntity
 import com.example.data.model.VoucherLineEntity
 import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
+import androidx.room.withTransaction
+import com.example.data.model.OrgLedgerSnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class ErpRepository(private val database: AppDatabase) {
@@ -246,6 +249,46 @@ class ErpRepository(private val database: AppDatabase) {
 
     suspend fun insertOrganization(organization: OrganizationEntity) {
         organizationDao.insertOrganization(organization)
+    }
+
+    suspend fun exportLedgerSnapshot(organization: OrganizationEntity): OrgLedgerSnapshot {
+        val vouchersWithLines = allVouchers.first()
+        return OrgLedgerSnapshot(
+            organization = organization,
+            organizations = allOrganizations.first(),
+            accounts = rawAccounts.first(),
+            vouchers = vouchersWithLines.map { it.voucher },
+            voucherLines = vouchersWithLines.flatMap { it.lines },
+            saleOrders = saleOrders.first(),
+            lots = lots.first()
+        )
+    }
+
+    suspend fun replaceLedgerFromSnapshot(snapshot: OrgLedgerSnapshot) {
+        database.withTransaction {
+            voucherDao.deleteAllLines()
+            voucherDao.deleteAllVouchers()
+            textileDao.deleteAllLots()
+            textileDao.deleteAllSaleOrders()
+            accountDao.deleteAllAccounts()
+            organizationDao.deleteAllOrganizations()
+
+            val orgs = if (snapshot.organizations.isNotEmpty()) snapshot.organizations else listOf(snapshot.organization)
+            organizationDao.insertOrganizations(orgs)
+            if (snapshot.accounts.isNotEmpty()) {
+                accountDao.insertAccounts(snapshot.accounts)
+            }
+            snapshot.vouchers.forEach { voucherDao.insertVoucher(it) }
+            if (snapshot.voucherLines.isNotEmpty()) {
+                voucherDao.insertLines(snapshot.voucherLines)
+            }
+            if (snapshot.saleOrders.isNotEmpty()) {
+                textileDao.insertSaleOrders(snapshot.saleOrders)
+            }
+            if (snapshot.lots.isNotEmpty()) {
+                textileDao.insertLots(snapshot.lots)
+            }
+        }
     }
 
     suspend fun deleteOrganization(organization: OrganizationEntity) {

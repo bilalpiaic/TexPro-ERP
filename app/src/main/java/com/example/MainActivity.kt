@@ -3,8 +3,11 @@ package com.example
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
@@ -32,11 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.model.SaleOrderEntity
+import com.example.data.auth.findActivity
 import com.example.data.model.VoucherType
 import com.example.ui.ErpViewModel
 import com.example.ui.components.OrganizationTenantDialog
@@ -89,9 +93,27 @@ fun MainAppScreen(
 
     val currentOrg by erpViewModel.currentOrganization.collectAsStateWithLifecycle()
     val allOrgs by erpViewModel.allOrganizations.collectAsStateWithLifecycle()
-    val currentUser by erpViewModel.currentUser.collectAsStateWithLifecycle()
+    val signedInAccount by erpViewModel.signedInAccount.collectAsStateWithLifecycle()
     val userRole by erpViewModel.currentUserRole.collectAsStateWithLifecycle()
     val isSyncing by erpViewModel.isCloudSyncing.collectAsStateWithLifecycle()
+    val isSigningIn by erpViewModel.isSigningIn.collectAsStateWithLifecycle()
+    val pendingGoogleConsent by erpViewModel.pendingGoogleConsent.collectAsStateWithLifecycle()
+    val hostActivity = LocalContext.current.findActivity()
+
+    val googleConsentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val activity = hostActivity
+        if (activity != null) {
+            erpViewModel.finishGoogleSignIn(activity, result.data)
+        }
+    }
+
+    LaunchedEffect(pendingGoogleConsent) {
+        val pending = pendingGoogleConsent ?: return@LaunchedEffect
+        erpViewModel.consumeGoogleConsent()
+        googleConsentLauncher.launch(IntentSenderRequest.Builder(pending).build())
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -106,9 +128,10 @@ fun MainAppScreen(
         OrganizationTenantDialog(
             allOrganizations = allOrgs,
             currentOrg = currentOrg,
-            currentUser = currentUser,
+            signedInAccount = signedInAccount,
             userRole = userRole,
             isSyncing = isSyncing,
+            isSigningIn = isSigningIn,
             onDismiss = { showOrgDialog = false },
             onSwitchOrg = { orgId ->
                 erpViewModel.switchOrganization(orgId)
@@ -117,14 +140,25 @@ fun MainAppScreen(
             onCreateOrg = { name, code, taxId, millAddress, currency ->
                 erpViewModel.createNewOrganization(name, code, taxId, millAddress, currency)
             },
-            onSignInWithGoogle = { activity ->
-                erpViewModel.signInWithGoogle(activity)
+            onSignInWithGoogle = {
+                val activity = hostActivity
+                if (activity != null) {
+                    erpViewModel.startGoogleSignIn(activity)
+                } else {
+                    erpViewModel.notifyGoogleSignInUnavailable()
+                }
             },
             onSignOut = {
                 erpViewModel.signOut()
             },
             onSyncCloud = {
                 erpViewModel.syncCurrentTenantWithCloud()
+            },
+            onSaveToDrive = {
+                hostActivity?.let { erpViewModel.saveActiveOrgToDrive(it) }
+            },
+            onLoadFromDrive = {
+                hostActivity?.let { erpViewModel.loadActiveOrgFromDrive(it) }
             },
             onDeleteAccount = {
                 erpViewModel.deleteAccount()
@@ -146,7 +180,7 @@ fun MainAppScreen(
             OrganizationTopHeader(
                 currentOrg = currentOrg,
                 userRole = userRole,
-                currentUser = currentUser,
+                signedInAccount = signedInAccount,
                 isSyncing = isSyncing,
                 onOpenOrgDialog = { showOrgDialog = true }
             )

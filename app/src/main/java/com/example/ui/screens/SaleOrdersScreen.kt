@@ -46,12 +46,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SaleOrderEntity
+import com.example.ui.components.AdaptiveGrid
+import com.example.ui.components.FormPairRow
 import com.example.ui.components.LabeledField
+import com.example.ui.components.MetricColumn
 import com.example.ui.components.PageHeader
+import com.example.ui.components.columns
 import com.example.ui.components.formatCurrency
+import com.example.ui.components.isCompact
+import com.example.ui.components.rememberWidthClass
 import com.example.ui.export.ReportText
 import com.example.ui.theme.Amber500
 import com.example.ui.theme.Blue500
@@ -68,6 +75,7 @@ fun SaleOrdersScreen(
     modifier: Modifier = Modifier
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
+    val widthClass = rememberWidthClass()
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -137,44 +145,76 @@ fun SaleOrdersScreen(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Quality / Blend", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${so.quality} • ${so.blend}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-                            }
-                            Column {
-                                Text("Width", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(so.width, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("Ordered Quantity", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${so.orderedPieces} pcs (${so.targetMeters.toInt()}m grey)", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                        AdaptiveGrid(
+                            itemCount = 3,
+                            columns = widthClass.columns(compact = 1, medium = 3, expanded = 3)
+                        ) { index, itemMod ->
+                            when (index) {
+                                0 -> MetricColumn("Quality / Blend", "${so.quality} • ${so.blend}", modifier = itemMod)
+                                1 -> MetricColumn("Width", so.width, modifier = itemMod)
+                                else -> MetricColumn(
+                                    "Ordered Quantity",
+                                    "${so.orderedPieces} pcs (${so.targetMeters.toInt()}m grey)",
+                                    alignEnd = !widthClass.isCompact,
+                                    modifier = itemMod
+                                )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("Order Contract Value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatCurrency(so.totalOrderValue), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Emerald500))
+                        if (widthClass.isCompact) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Column {
+                                    Text("Order Contract Value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        formatCurrency(so.totalOrderValue),
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Emerald500, fontFeatureSettings = "tnum"),
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (!isCompleted) {
+                                    Button(
+                                        onClick = { onStartLotForSo(so) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Start Lot (Grey Purchase)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
                             }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Order Contract Value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        formatCurrency(so.totalOrderValue),
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Emerald500, fontFeatureSettings = "tnum"),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
 
-                            if (!isCompleted) {
-                                Button(
-                                    onClick = { onStartLotForSo(so) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Start Lot (Grey Purchase)")
+                                if (!isCompleted) {
+                                    Button(
+                                        onClick = { onStartLotForSo(so) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Start Lot (Grey Purchase)")
+                                    }
                                 }
                             }
                         }
@@ -235,10 +275,14 @@ private fun NewSaleOrderDialog(
                 item { LabeledField("Blend", blend, { blend = it }, helper = "Fibre composition, e.g. 100% combed cotton") }
                 item { LabeledField("Width", width, { width = it }, helper = "Grey width in inches") }
                 item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LabeledField("Pieces / sets", piecesStr, { piecesStr = it }, helper = "Finished units", required = true, keyboardType = KeyboardType.Number, modifier = Modifier.weight(1f))
-                        LabeledField("Grey metres", metersStr, { metersStr = it }, helper = "Estimated grey input", keyboardType = KeyboardType.Number, modifier = Modifier.weight(1f))
-                    }
+                    FormPairRow(
+                        first = { fieldMod ->
+                            LabeledField("Pieces / sets", piecesStr, { piecesStr = it }, helper = "Finished units", required = true, keyboardType = KeyboardType.Number, modifier = fieldMod)
+                        },
+                        second = { fieldMod ->
+                            LabeledField("Grey metres", metersStr, { metersStr = it }, helper = "Estimated grey input", keyboardType = KeyboardType.Number, modifier = fieldMod)
+                        }
+                    )
                 }
                 item { LabeledField("Selling price / piece (Rs.)", priceStr, { priceStr = it }, helper = "Unit invoice price in mill currency", required = true, keyboardType = KeyboardType.Number) }
                 item { LabeledField("Terms / notes", notes, { notes = it }, helper = "Delivery, packing, or buyer specs", singleLine = false) }

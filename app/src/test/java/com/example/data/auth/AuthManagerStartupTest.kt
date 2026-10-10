@@ -25,6 +25,6 @@ class AuthManagerStartupTest {
     fun viewModelStartsWithoutGoogleServicesJson() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val viewModel = ErpViewModel(app)
-        assertNull(viewModel.currentUser.value)
+        assertNull(viewModel.signedInAccount.value)
     }
 }

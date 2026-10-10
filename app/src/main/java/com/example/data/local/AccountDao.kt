@@ -34,4 +34,7 @@ interface AccountDao {
 
     @Delete
     suspend fun deleteAccount(account: AccountEntity)
+
+    @Query("DELETE FROM accounts")
+    suspend fun deleteAllAccounts()
 }

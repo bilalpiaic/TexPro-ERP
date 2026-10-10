@@ -2,12 +2,15 @@ package com.example.ui
 
 import android.app.Activity
 import android.app.Application
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.auth.AuthManager
+import com.example.data.auth.GoogleSignInOutcome
+import com.example.data.auth.SignedInAccount
+import com.example.data.auth.isFirebaseReady
 import com.example.data.local.AppDatabase
-import com.example.data.model.AccountEntity
-import com.example.data.model.AccountType
 import com.example.data.model.AccountWithBalance
 import com.example.data.model.BalanceSheetData
 import com.example.data.model.FinancialHealthRatios
@@ -25,7 +28,7 @@ import com.example.data.model.VoucherType
 import com.example.data.model.VoucherWithLines
 import com.example.data.repository.ErpRepository
 import com.example.data.repository.FirestoreSaasRepository
-import com.google.firebase.auth.FirebaseUser
+import com.example.data.repository.GoogleDriveLedgerStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +44,7 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ErpRepository(AppDatabase.getInstance(application))
     private val authManager = AuthManager(application)
     private val saasRepository = FirestoreSaasRepository(application)
+    private val driveStore = GoogleDriveLedgerStore()
 
     // SaaS Organization State
     val allOrganizations: StateFlow<List<OrganizationEntity>> = repository.allOrganizations
@@ -56,9 +60,13 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUserRole = MutableStateFlow(OrgMemberRole.OWNER)
     val currentUserRole: StateFlow<OrgMemberRole> = _currentUserRole.asStateFlow()
 
-    // Authentication State (Google Sign-In)
-    val currentUser: StateFlow<FirebaseUser?> = authManager.authState
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), authManager.currentUser)
+    val signedInAccount: StateFlow<SignedInAccount?> = authManager.signedInAccount
+
+    private val _pendingGoogleConsent = MutableStateFlow<PendingIntent?>(null)
+    val pendingGoogleConsent: StateFlow<PendingIntent?> = _pendingGoogleConsent.asStateFlow()
+
+    private val _isSigningIn = MutableStateFlow(false)
+    val isSigningIn: StateFlow<Boolean> = _isSigningIn.asStateFlow()
 
     // Cloud Sync State
     private val _isCloudSyncing = MutableStateFlow(false)
@@ -263,8 +271,8 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             val orgId = "org_${System.currentTimeMillis() % 100000}"
-            val user = currentUser.value
-            val ownerUid = user?.uid ?: "local_admin"
+            val user = signedInAccount.value
+            val ownerUid = user?.id ?: "local_admin"
             val newOrg = OrganizationEntity(
                 id = orgId,
                 name = name,
@@ -278,11 +286,11 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
             repository.insertOrganization(newOrg)
             _currentOrgId.value = orgId
 
-            if (user != null) {
+            if (user != null && isFirebaseReady(getApplication()) && authManager.currentUser != null) {
                 val profile = SaaSUserProfile(
-                    uid = user.uid,
-                    email = user.email ?: "",
-                    displayName = user.displayName ?: user.email ?: "User",
+                    uid = user.id,
+                    email = user.email,
+                    displayName = user.displayName.ifBlank { user.email },
                     activeOrgId = orgId,
                     joinedOrgIds = listOf(orgId)
                 )
@@ -293,47 +301,61 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun signInWithGoogle(activity: Activity) {
+    fun notifyGoogleSignInUnavailable() {
+        _userFeedbackMessage.value = "Could not open Google Sign-In. Close this sheet and tap the company header again."
+    }
+
+    fun startGoogleSignIn(activity: Activity) {
         viewModelScope.launch {
-            val result = authManager.signInWithGoogle(activity)
-            result.onSuccess { user ->
-                _userFeedbackMessage.value = "Welcome ${user.displayName ?: user.email}! Signed in with Google."
-                // Save user profile in Firestore
-                val currentId = _currentOrgId.value
-                val profile = SaaSUserProfile(
-                    uid = user.uid,
-                    email = user.email ?: "",
-                    displayName = user.displayName ?: "",
-                    activeOrgId = currentId,
-                    joinedOrgIds = listOf(currentId)
-                )
-                saasRepository.saveUserProfile(profile)
-            }.onFailure { err ->
-                _userFeedbackMessage.value = "Sign in was not completed: ${err.message}"
+            _isSigningIn.value = true
+            try {
+                applyGoogleOutcome(authManager.beginSignIn(activity), welcome = true)
+            } finally {
+                _isSigningIn.value = false
+            }
+        }
+    }
+
+    fun consumeGoogleConsent() {
+        _pendingGoogleConsent.value = null
+    }
+
+    fun finishGoogleSignIn(activity: Activity, data: Intent?) {
+        viewModelScope.launch {
+            _isSigningIn.value = true
+            try {
+                applyGoogleOutcome(authManager.completeAuthorization(activity, data), welcome = true)
+            } finally {
+                _isSigningIn.value = false
             }
         }
     }
 
     fun signOut() {
         authManager.signOut()
-        _userFeedbackMessage.value = "Signed out of TexPro Cloud."
+        _userFeedbackMessage.value = "Signed out of Google. Mill books stay on this device."
     }
 
     fun deleteAccount() {
         viewModelScope.launch {
-            val user = currentUser.value
+            val user = signedInAccount.value
             if (user == null) {
                 _userFeedbackMessage.value = "Sign in first to delete a cloud account."
                 return@launch
             }
             try {
-                saasRepository.deleteUserCloudData(user.uid)
-                val result = authManager.deleteAccount()
-                result.onSuccess {
-                    _userFeedbackMessage.value = "Account deleted. Local mill data on this device was kept."
-                }.onFailure { err ->
-                    _userFeedbackMessage.value =
-                        "Cloud profile removed, but Google requires a recent sign-in to finish deleting the account. Sign in again, then retry. (${err.message})"
+                if (isFirebaseReady(getApplication()) && authManager.currentUser != null) {
+                    saasRepository.deleteUserCloudData(authManager.currentUser!!.uid)
+                    val result = authManager.deleteAccount()
+                    result.onSuccess {
+                        _userFeedbackMessage.value = "Account deleted. Local mill data on this device was kept."
+                    }.onFailure { err ->
+                        _userFeedbackMessage.value =
+                            "Cloud profile removed, but Google requires a recent sign-in to finish deleting the account. Sign in again, then retry. (${err.message})"
+                    }
+                } else {
+                    authManager.signOut()
+                    _userFeedbackMessage.value = "Google session cleared on this device. Local mill data was kept."
                 }
             } catch (e: Exception) {
                 _userFeedbackMessage.value = "Could not delete account: ${e.message}"
@@ -341,28 +363,141 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun syncCurrentTenantWithCloud() {
+    fun saveActiveOrgToDrive(activity: Activity) {
         viewModelScope.launch {
-            val org = currentOrganization.value ?: return@launch
-            if (currentUser.value == null) {
-                _userFeedbackMessage.value = "Sign in with Google to sync this organization to the cloud."
+            val org = currentOrganization.value
+            if (signedInAccount.value == null) {
+                _userFeedbackMessage.value = "Sign in with Google first to save this mill on Drive."
+                return@launch
+            }
+            if (org == null) {
+                _userFeedbackMessage.value = "Create or select an organization first."
                 return@launch
             }
             _isCloudSyncing.value = true
-            _userFeedbackMessage.value = "Syncing ${org.name} to Firestore..."
             try {
-                saasRepository.syncTenantDataToCloud(
-                    orgId = org.id,
-                    accounts = repository.rawAccounts.first(),
-                    vouchers = repository.allVouchers.first(),
-                    lots = repository.lots.first(),
-                    saleOrders = repository.saleOrders.first()
-                )
-                _userFeedbackMessage.value = "Cloud sync complete for ${org.name}."
+                val token = ensureDriveToken(activity) ?: return@launch
+                val snapshot = repository.exportLedgerSnapshot(org)
+                driveStore.saveSnapshot(token, snapshot)
+                _userFeedbackMessage.value = "Saved ${org.name} to Google Drive folder TexPro ERP / ${org.code} - ${org.name}."
+            } catch (e: Exception) {
+                _userFeedbackMessage.value = "Google Drive save failed: ${e.message}"
+            } finally {
+                _isCloudSyncing.value = false
+            }
+        }
+    }
+
+    fun loadActiveOrgFromDrive(activity: Activity) {
+        viewModelScope.launch {
+            val org = currentOrganization.value
+            if (signedInAccount.value == null) {
+                _userFeedbackMessage.value = "Sign in with Google first to load mill books from Drive."
+                return@launch
+            }
+            if (org == null) {
+                _userFeedbackMessage.value = "Create or select an organization first."
+                return@launch
+            }
+            _isCloudSyncing.value = true
+            try {
+                val token = ensureDriveToken(activity) ?: return@launch
+                val snapshot = driveStore.loadSnapshot(token, org)
+                if (snapshot == null) {
+                    _userFeedbackMessage.value = "No TexPro ledger found in Google Drive for ${org.code}."
+                    return@launch
+                }
+                repository.replaceLedgerFromSnapshot(snapshot)
+                _currentOrgId.value = snapshot.organization.id
+                _userFeedbackMessage.value = "Loaded ${snapshot.organization.name} from Google Drive."
+            } catch (e: Exception) {
+                _userFeedbackMessage.value = "Google Drive load failed: ${e.message}"
+            } finally {
+                _isCloudSyncing.value = false
+            }
+        }
+    }
+
+    fun syncCurrentTenantWithCloud() {
+        viewModelScope.launch {
+            val org = currentOrganization.value ?: return@launch
+            if (signedInAccount.value == null) {
+                _userFeedbackMessage.value = "Sign in with Google to sync this organization."
+                return@launch
+            }
+            _isCloudSyncing.value = true
+            try {
+                if (isFirebaseReady(getApplication()) && authManager.currentUser != null) {
+                    _userFeedbackMessage.value = "Syncing ${org.name} to Firestore..."
+                    saasRepository.syncTenantDataToCloud(
+                        orgId = org.id,
+                        accounts = repository.rawAccounts.first(),
+                        vouchers = repository.allVouchers.first(),
+                        lots = repository.lots.first(),
+                        saleOrders = repository.saleOrders.first()
+                    )
+                    _userFeedbackMessage.value = "Cloud sync complete for ${org.name}."
+                } else {
+                    _userFeedbackMessage.value = "Firebase is not configured. Use Save mill to Google Drive instead."
+                }
             } catch (e: Exception) {
                 _userFeedbackMessage.value = "Cloud sync failed: ${e.message}"
             } finally {
                 _isCloudSyncing.value = false
+            }
+        }
+    }
+
+    private suspend fun ensureDriveToken(activity: Activity): String? {
+        authManager.driveAccessToken?.let { return it }
+        return when (val outcome = authManager.refreshDriveAccessToken(activity)) {
+            is GoogleSignInOutcome.Success -> authManager.driveAccessToken
+            is GoogleSignInOutcome.NeedsUserConsent -> {
+                _pendingGoogleConsent.value = outcome.pendingIntent
+                _userFeedbackMessage.value = "Allow Drive access in the Google prompt, then tap Save / Load again."
+                null
+            }
+            is GoogleSignInOutcome.Cancelled -> {
+                _userFeedbackMessage.value = outcome.message
+                null
+            }
+            is GoogleSignInOutcome.Failure -> {
+                _userFeedbackMessage.value = outcome.message
+                null
+            }
+        }
+    }
+
+    private suspend fun applyGoogleOutcome(outcome: GoogleSignInOutcome, welcome: Boolean) {
+        when (outcome) {
+            is GoogleSignInOutcome.Success -> {
+                val account = outcome.account
+                if (welcome) {
+                    val label = account.displayName.ifBlank { account.email }.ifBlank { "Google account" }
+                    _userFeedbackMessage.value = "Welcome $label. Mill books can be saved to your Google Drive."
+                }
+                val firebaseUser = authManager.currentUser
+                if (firebaseUser != null && isFirebaseReady(getApplication())) {
+                    val currentId = _currentOrgId.value
+                    saasRepository.saveUserProfile(
+                        SaaSUserProfile(
+                            uid = firebaseUser.uid,
+                            email = account.email,
+                            displayName = account.displayName,
+                            activeOrgId = currentId,
+                            joinedOrgIds = listOf(currentId)
+                        )
+                    )
+                }
+            }
+            is GoogleSignInOutcome.NeedsUserConsent -> {
+                _pendingGoogleConsent.value = outcome.pendingIntent
+            }
+            is GoogleSignInOutcome.Cancelled -> {
+                _userFeedbackMessage.value = outcome.message
+            }
+            is GoogleSignInOutcome.Failure -> {
+                _userFeedbackMessage.value = outcome.message
             }
         }
     }

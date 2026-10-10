@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -117,11 +119,16 @@ fun StatCard(
             ) {
                 Text(
                     text = title.uppercase(Locale.US),
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(min = 0.dp),
                     style = MaterialTheme.typography.labelMedium.copy(
                         letterSpacing = 1.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (icon != null) {
                     Box(
@@ -147,9 +154,12 @@ fun StatCard(
                 text = value,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif
+                    fontFamily = FontFamily.SansSerif,
+                    fontFeatureSettings = "tnum"
                 ),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             if (trendPercent != null || subtitle != null) {
@@ -206,43 +216,89 @@ fun BalanceCheckBanner(
             .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = textColor,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = if (isBalanced) "General Ledger Balanced (Double-Entry Invariant)" else "Ledger Out of Balance",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        color = textColor
+        if (rememberWidthClass().isCompact) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = textColor,
+                        modifier = Modifier.size(20.dp)
                     )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isBalanced) "General Ledger Balanced (Double-Entry Invariant)" else "Ledger Out of Balance",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = textColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Assets: ${formatRs(totalAssets)} = Liab & Eq: ${formatRs(totalLiabilitiesAndEquity)}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(textColor)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
                     Text(
-                        text = "Assets: ${formatRs(totalAssets)} = Liab & Eq: ${formatRs(totalLiabilitiesAndEquity)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = if (isBalanced) "AUDIT OK" else "VARIANCE",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
                     )
                 }
             }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(textColor)
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = if (isBalanced) "AUDIT OK" else "VARIANCE",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = textColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isBalanced) "General Ledger Balanced (Double-Entry Invariant)" else "Ledger Out of Balance",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = textColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Assets: ${formatRs(totalAssets)} = Liab & Eq: ${formatRs(totalLiabilitiesAndEquity)}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(textColor)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (isBalanced) "AUDIT OK" else "VARIANCE",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                }
             }
         }
     }
@@ -267,11 +323,7 @@ fun DateRangeFilterHeader(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            WrapRow(horizontalSpacing = 6.dp, verticalSpacing = 4.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -280,17 +332,18 @@ fun DateRangeFilterHeader(
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        "$fromStr  ➔  $toStr",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                    )
                 }
+                Text(
+                    "$fromStr  ➔  $toStr",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            WrapRow(horizontalSpacing = 6.dp, verticalSpacing = 6.dp) {
                 PresetPill("All Time") { onPresetSelected("ALL") }
                 PresetPill("This Month") { onPresetSelected("MONTH") }
                 PresetPill("Last 30 Days") { onPresetSelected("30D") }
@@ -390,7 +443,9 @@ fun SectionHeader(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             if (subtitle != null) {
                 Text(

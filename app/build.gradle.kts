@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.ledgerproerp.qzmxyt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "1.2.0"
+    versionCode = 6
+    versionName = "1.2.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -133,6 +133,8 @@ dependencies {
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
+  implementation(libs.play.services.auth)
+  implementation(libs.kotlinx.coroutines.play.services)
   implementation(libs.firebase.appcheck.recaptcha)
   debugImplementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)

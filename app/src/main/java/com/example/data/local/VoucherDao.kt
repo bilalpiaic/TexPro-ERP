@@ -55,4 +55,10 @@ interface VoucherDao {
 
     @Delete
     suspend fun deleteVoucher(voucher: VoucherEntity)
+
+    @Query("DELETE FROM voucher_lines")
+    suspend fun deleteAllLines()
+
+    @Query("DELETE FROM vouchers")
+    suspend fun deleteAllVouchers()
 }
